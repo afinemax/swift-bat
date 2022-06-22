@@ -42,7 +42,8 @@ from datetime import datetime,timedelta
 results = '../results' # maybe I'll save stuff in the corresponding swift id dir? that seems reasonable
 file_ext = '.pdf' # for the outputted plots
 data_dir = '../data' # will loop through every dir for the bat data
-
+sky_local = 'sky_frb.tsv'
+guano_dump = 'GUANO dump inventory - GUANO triggers.tsv'
 # args
 clobber = True # if true remakes/overwrites files
 time_res = 1 # seconds?
@@ -72,9 +73,32 @@ def get_swift_ids_data(data_dir):
     source_ids.remove('skycoords.dat')
     return source_ids
 #-----------------------------------------------------------------------------#
-def get_gauno_info(data_dir):
+def get_sky_local(data_dir, sky_local):
+    sky_local_path =  data_dir + '/' + sky_local
+    sky_local_data = np.genfromtxt(sky_local_path,delimiter='\t',skip_header=1)
 
-    guano_dump = 'GUANO dump inventory - GUANO triggers.tsv'
+    # format chime Event no, status, RA, RA Error,Dec ,Dec error
+    # we want a dict of chime event with ra, dec and errors!
+
+    chime_ids_raw = sky_local_data[:,0]
+    chime_ids = chime_ids_raw.astype(int)
+
+    # degrees
+    ra = sky_local_data[:,2]
+    ra_err = sky_local_data[:,3]
+    dec = sky_local_data[:,4]
+    dec_err = sky_local_data[:,5]
+
+    # make dicts
+    chime_ra = dict(zip(chime_ids,ra))
+    chime_dec = dict(zip(chime_ids,dec))
+    chime_ra_err = dict(zip(chime_ids,ra_err))
+    chime_dec_err = dict(zip(chime_ids,dec_err))
+
+    return chime_ra, chime_dec, chime_ra_err, chime_dec_err
+#-----------------------------------------------------------------------------#
+def get_gauno_info(data_dir,guano_dump):
+
     guano_path = data_dir + '/' + guano_dump
 
 
@@ -130,6 +154,46 @@ def get_swift_time_from_chime(chime_trigger, swift_ids):
     cc.met
     res = dict(zip(swift_ids, cc.met))
     return res
+#-----------------------------------------------------------------------------#
+def swift_chime_dict(swift_ids, chime_ids):
+    '''returns a dict mapping swift_ids to chime_ids'''
+
+    # need to change chime_id into int from b_string
+    chime_ids_int = np.zeros(len(chime_ids))
+    for i in range(len(chime_ids_int)):
+        chime_ids_int[i] = int(chime_ids[i].decode("utf-8"))
+
+    return dict(zip(swift_ids,chime_ids_int))
+#-----------------------------------------------------------------------------#
+def swift_sky_local(data_dir, sky_local,swift_ids, chime_ids):
+    '''returns dict mapping corresponding chime localizations to swift_ids
+    - checks to be sure that data exists'''
+
+    chime_ra, chime_dec, chime_ra_err, chime_dec_err = get_sky_local(data_dir, sky_local)
+    swift_chime_map = swift_chime_dict(swift_ids, chime_ids)
+
+    swift_ra = {}
+    swift_ra_err = {}
+    swift_dec = {}
+    swift_dec_err = {}
+    # need to check that chime_id exists in both before making new entry
+    for i in range(len(swift_ids)):
+        swift_id = swift_ids[i]
+        try:
+            chime_id = int(swift_chime_map[swift_id])
+        except:
+            continue
+        else:
+            try:
+                swift_ra[swift_id] = chime_ra[chime_id]
+                swift_ra_err[swift_id] = chime_dec[chime_id]
+                swift_dec[swift_id] = chime_ra_err[chime_id]
+                swift_dec_err[swift_id]= chime_dec_err[chime_id]
+            except:
+                continue
+
+
+    return swift_ra, swift_ra_err, swift_dec, swift_dec_err
 #-----------------------------------------------------------------------------#
 def get_evt_files(event_dir):
     'makes a list of the evt files in a swift bat dir'
@@ -243,9 +307,6 @@ def run_heasoft(source_id, evt_file, results, event_dir, hk_dir,
         # run heasoft source finder
         subprocess.run(['batcelldetect frb.sky outfile=cat.fits'], shell=True, cwd = results_dir, stdout = f, stderr =f)
 
-
-
-
     return
 #-----------------------------------------------------------------------------#
 def run_search():
@@ -253,21 +314,21 @@ def run_search():
     localizations"""
     #swift_ids = get_swift_ids_data(data_dir)
 
-    swift_ids, tsar_arr, chime_ids, chime_trigger = get_gauno_info(data_dir)
-    swift_ids = str_swift_id(swift_ids)
+    swift_ids, tsar_arr, chime_ids, chime_trigger = get_gauno_info(data_dir,guano_dump)
+    swift_ids = str_swift_id(swift_ids) # makes swift ID into a str this is
+
+    chime_ra, chime_dec, chime_ra_err, chime_dec_err = get_sky_local(data_dir, sky_local)
 
     swift_chime_trigger = get_swift_time_from_chime(chime_trigger, swift_ids)
 
-
-
+    swift_ra, swift_ra_err, swift_dec, swift_dec_err = swift_sky_local(data_dir, sky_local,swift_ids, chime_ids)
     #swift_ids = get_swift_ids_data(data_dir)
+    swift_ids = np.asarray(list(swift_ra.keys()))
     event_dir, hk_dir, results_dir = get_dir_trees(swift_ids,data_dir,results)
 
     print('Running HEASOFT analysis over BAT Files')
     for i in tqdm(range(len(swift_ids))): # tqdm is for progress bar
         #sleep(3)
-
-
 
         swift_id = swift_ids[i]
 

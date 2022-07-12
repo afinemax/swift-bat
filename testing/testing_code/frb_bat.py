@@ -38,7 +38,8 @@ from tqdm import tqdm
 from swifttools.swift_too import Clock, ObsQuery, VisQuery
 from datetime import datetime,timedelta
 #-------------------------------------------------------------------------------
-# arguments
+# some dummy arguments for testing purposes
+# will be command line entries eventually
 results = '../results' # maybe I'll save stuff in the corresponding swift id dir? that seems reasonable
 file_ext = '.pdf' # for the outputted plots
 data_dir = '../data' # will loop through every dir for the bat data
@@ -46,7 +47,7 @@ sky_local = 'sky_frb.tsv'
 guano_dump = 'GUANO dump inventory - GUANO triggers.tsv'
 # args
 clobber = True # if true remakes/overwrites files
-time_res = 1 # seconds?
+time_res = 0.1 # seconds
 energy_bins = 14-175
 source_id = '00010374156'
 evt_file = 'sw00010374156bevshsl_uf.evt.gz'
@@ -59,9 +60,18 @@ hk_dir = data_dir + '/' +source_id + '/bat/hk'
 results_dir = results + '/' + source_id
 #-----------------------------------------------------------------------------#
 def get_swift_ids_data(data_dir):
-    '''make list of swift IDS from the data dir'''
-    output = subprocess.check_output(["ls",],universal_newlines=True, cwd= data_dir)
-    source_ids = output.split() # list of strings the source IDs
+    '''returns list of SWIFT IDS from data_dir (data directory)
+
+    Args:
+    data_dir = str, relative location of data directory from this file
+
+    Returns:
+    list of (strings) names of contents of data directroy, removes a few files
+
+    '''
+    output = subprocess.check_output(["ls", ], universal_newlines=True,
+                                     cwd=data_dir)
+    source_ids = output.split()  # makes list of strings the source IDs
 
     # pop off these dirs if they exist in the list
     source_ids.remove('GUANO')
@@ -71,38 +81,52 @@ def get_swift_ids_data(data_dir):
     source_ids.remove('GUANO')
     source_ids.remove('triggers.tsv')
     source_ids.remove('skycoords.dat')
+
     return source_ids
 #-----------------------------------------------------------------------------#
-def get_sky_local(data_dir, sky_local):
-    sky_local_path =  data_dir + '/' + sky_local
-    sky_local_data = np.genfromtxt(sky_local_path,delimiter='\t',skip_header=1)
+def get_chime_sky_local(data_dir, sky_local):
+    '''Gathers CHIME localizations and returns dictories of localizations based
+       on their CHIME ID
 
-    # format chime Event no, status, RA, RA Error,Dec ,Dec error
-    # we want a dict of chime event with ra, dec and errors!
+    Args:
+    data_dir = str, relative path to data directory
 
-    chime_ids_raw = sky_local_data[:,0]
+    sky_local = TSV file of chime localizations
+
+    Returns:
+
+    Dictionaries mapping CHIME IDS (keys) to their localizations,
+    localizations are in degrees'''
+
+    sky_local_path = data_dir + '/' + sky_local
+    sky_local_data = np.genfromtxt(sky_local_path, delimiter='\t',
+                                   skip_header=1)
+
+    # file format chime Event no, status, RA, RA_Error, Dec , Dec_error
+    chime_ids_raw = sky_local_data[:, 0]
     chime_ids = chime_ids_raw.astype(int)
 
     # degrees
-    ra = sky_local_data[:,2]
-    ra_err = sky_local_data[:,3]
-    dec = sky_local_data[:,4]
-    dec_err = sky_local_data[:,5]
+    ra = sky_local_data[:, 2]
+    ra_err = sky_local_data[:, 3]
+    dec = sky_local_data[:, 4]
+    dec_err = sky_local_data[:, 5]
 
     # make dicts
-    chime_ra = dict(zip(chime_ids,ra))
-    chime_dec = dict(zip(chime_ids,dec))
-    chime_ra_err = dict(zip(chime_ids,ra_err))
-    chime_dec_err = dict(zip(chime_ids,dec_err))
+    chime_ra = dict(zip(chime_ids, ra))
+    chime_dec = dict(zip(chime_ids, dec))
+    chime_ra_err = dict(zip(chime_ids, ra_err))
+    chime_dec_err = dict(zip(chime_ids, dec_err))
 
     return chime_ra, chime_dec, chime_ra_err, chime_dec_err
 #-----------------------------------------------------------------------------#
-def get_gauno_info(data_dir,guano_dump):
+def get_gauno_info(data_dir, guano_dump):
+    '''Gathers relevent information from Guano_dump TSV files'''
 
     guano_path = data_dir + '/' + guano_dump
 
-
-    gauno_dump_data = np.genfromtxt(guano_path,delimiter='\t', skip_header=1, dtype= None)
+    gauno_dump_data = np.genfromtxt(guano_path, delimiter='\t', skip_header=1,
+                                    dtype=None)
     swift_ids = np.zeros(len(gauno_dump_data))
     chime_trigger = []
     chime_ids = []
@@ -112,12 +136,12 @@ def get_gauno_info(data_dir,guano_dump):
     # we want the ones with tsar_good and bb == True right?
     for i in range(len(gauno_dump_data)):
         swift_ids[i] = gauno_dump_data[i][0]
-        #chime_trigger.append(gauno_dump_data[i][1]) # this is a b'string' format
-        #chime_ids.append(gauno_dump_data[i][2]) # this is a b'string' format
-        tsar_bb.append(gauno_dump_data[i][-2]) # this is a b'string' format
+        # chime_trigger.append(gauno_dump_data[i][1]) # this is a b'string'
+        # chime_ids.append(gauno_dump_data[i][2]) # this is a b'string' format
+        tsar_bb.append(gauno_dump_data[i][-2])  # this is a b'string' format
         if tsar_bb[i] == b'TRUE':
             tsar_bb[i] = True
-            chime_trigger.append(gauno_dump_data[i][1]) # this is a b'string' format
+            chime_trigger.append(gauno_dump_data[i][1])  # this is a b'string'
             chime_ids.append(gauno_dump_data[i][2])
         elif tsar_bb[i] == b'FALSE':
             tsar_bb[i] = False
@@ -128,10 +152,11 @@ def get_gauno_info(data_dir,guano_dump):
     index_arr = np.where(tsar_arr == True)
     swift_ids = swift_ids[index_arr[0]]
 
-
     return swift_ids, tsar_arr, chime_ids, chime_trigger
 #-----------------------------------------------------------------------------#
 def str_swift_id(swift_ids):
+    '''Takes swift_IDS missing leading zeros and returns
+        a list of the IDS with the leading zeros'''
 
     str_ids = []
 
@@ -139,12 +164,13 @@ def str_swift_id(swift_ids):
         id_len = len(str(int(swift_ids[i])))
         str_ids.append('0' * (11-id_len) + str(int(swift_ids[i])))
 
-
     return str_ids
-
 #-----------------------------------------------------------------------------#
 def get_swift_time_from_chime(chime_trigger, swift_ids):
-    chime_trigger_str =[]
+    '''Returns a dict of SWIFT IDS to the corresponding SWIFT time
+        of the CHIME event trigger'''
+
+    chime_trigger_str = []
     for i in range(len(chime_trigger)):
         chime_trigger_str.append(chime_trigger[i].decode('utf-8'))
     trigger = chime_trigger_str
@@ -165,17 +191,29 @@ def swift_chime_dict(swift_ids, chime_ids):
 
     return dict(zip(swift_ids,chime_ids_int))
 #-----------------------------------------------------------------------------#
-def swift_sky_local(data_dir, sky_local,swift_ids, chime_ids):
-    '''returns dict mapping corresponding chime localizations to swift_ids
-    - checks to be sure that data exists'''
+def swift_sky_local(data_dir, sky_local, swift_ids, chime_ids):
+    '''Gathers CHIME localizations and returns dictories of localizations based
+       on their CHIME ID
 
-    chime_ra, chime_dec, chime_ra_err, chime_dec_err = get_sky_local(data_dir, sky_local)
+    Args:
+    data_dir = str, relative path to data directory
+
+    sky_local = TSV file of chime localizations
+
+    Returns:
+
+    Dictionaries mapping CHIME IDS (keys) to their localizations,
+    localizations are in degrees'''
+
+    chime_ra, chime_dec, chime_ra_err, chime_dec_err = get_chime_sky_local(
+                                                        data_dir, sky_local)
     swift_chime_map = swift_chime_dict(swift_ids, chime_ids)
 
     swift_ra = {}
     swift_ra_err = {}
     swift_dec = {}
     swift_dec_err = {}
+    swift_chime_mapv2 = {}
     # need to check that chime_id exists in both before making new entry
     for i in range(len(swift_ids)):
         swift_id = swift_ids[i]
@@ -186,27 +224,26 @@ def swift_sky_local(data_dir, sky_local,swift_ids, chime_ids):
         else:
             try:
                 swift_ra[swift_id] = chime_ra[chime_id]
-                swift_ra_err[swift_id] = chime_dec[chime_id]
-                swift_dec[swift_id] = chime_ra_err[chime_id]
-                swift_dec_err[swift_id]= chime_dec_err[chime_id]
+                swift_ra_err[swift_id] = chime_ra_err[chime_id]
+                swift_dec[swift_id] = chime_dec[chime_id]
+                swift_dec_err[swift_id] = chime_dec_err[chime_id]
+                swift_chime_mapv2[swift_id] = chime_id
             except:
                 continue
 
-
-    return swift_ra, swift_ra_err, swift_dec, swift_dec_err
+    return swift_ra, swift_ra_err, swift_dec, swift_dec_err, swift_chime_mapv2
 #-----------------------------------------------------------------------------#
 def get_evt_files(event_dir):
-    'makes a list of the evt files in a swift bat dir'
+    '''makes a list of the evt files in a swift bat dir'''
     bat_event_data = subprocess.check_output(["ls",],universal_newlines=True,
     cwd= event_dir)
     evt_files = bat_event_data.split()
     return evt_files
 #-----------------------------------------------------------------------------#
 def get_dir_trees(source_ids,data_dir,results):
-    '''makes dicts of event, hk, and results dirs'''
+    '''makes dicts of event, hk, and results dirs for each swift_id'''
 
     events = '/bat/event'
-
 
     event_dir = {}
     hk_dir = {}
@@ -222,7 +259,8 @@ def get_dir_trees(source_ids,data_dir,results):
 def run_heasoft(source_id, evt_file, results, event_dir, hk_dir,
                 results_dir, evt_start,evt_end,bck_start,bck_end,
                 clobber=clobber ,energy_bins=14-175, time_res=1):
-    '''Wrapper function that runs the main heasoft commands, and produces results
+    '''Wrapper function that runs the main heasoft commands, and produces
+    results in results_dir
 
     Args:
     '''
@@ -255,6 +293,10 @@ def run_heasoft(source_id, evt_file, results, event_dir, hk_dir,
                          + str(results_dir) + '/frb.dpi'  ],
                         shell=True, cwd = '../data', stdout = f, stderr =f)
 
+        subprocess.run(['cp /tesing_code/' + 'test_cat'
+                       +' ' + str(results_dir) + 'test_cat'  ],
+                       shell=True, cwd = '../', stdout = f, stderr =f)
+
         subprocess.run(['cp ' +str(hk_dir) + '/sw' + str(source_id) + 'bdecb.hk.gz '
                        + str(results_dir) + '/sw' + str(source_id) + 'bdecb.hk.gz'  ],
                        shell=True, cwd = '../data', stdout = f, stderr =f)
@@ -276,9 +318,8 @@ def run_heasoft(source_id, evt_file, results, event_dir, hk_dir,
         # should I set energy bins here and time res?
         subprocess.run(['batbinevt detmask=frb.mask ' + str(j)
                     + ' timedel = ' + str(time_res)  + ' weighted=no outtype=lc energybins=- outfile =frb.heasoft.lc clobber ='
-                    + str(clobber) ],
+                    + str(clobber) + ' incatalog = test_cat '],
                        shell=True, cwd=results_dir, stdout = f, stderr =f)
-
        # make frb2_dpi
        # this one should contain our target source
        # need to add target_time and time size stuff
@@ -305,7 +346,50 @@ def run_heasoft(source_id, evt_file, results, event_dir, hk_dir,
                        shell=True, cwd = results_dir, stdout = f, stderr =f)
 
         # run heasoft source finder
-        subprocess.run(['batcelldetect frb.sky outfile=cat.fits'], shell=True, cwd = results_dir, stdout = f, stderr =f)
+        subprocess.run(['batcelldetect frb.sky snrthresh = 3.5 incatalog = test_cat outfile=cat.fits'], shell=True, cwd = results_dir, stdout = f, stderr =f)
+
+    return
+#-----------------------------------------------------------------------------#
+def creat_frb_catalog(swift_ids, ras, decs, ra_err, dec_err, swift_chime_map, catalog_name='CHIME_FRB_Catalog'):
+    '''Exports simulated fractional stokes Q&U values to a text file
+
+    Args:
+
+    File format:
+    ['swift_id' chime_id ra dec ra_err dec_err ] # ra and dec in degrees
+
+    Returns = none
+    '''
+    # write to file
+    with open( catalog_name +'.col', 'w') as f:
+
+        f.write('03110142001 chime_test 15.890800 -73.858000 ra_err dec_err test')
+        # for loop for data
+        n = len(swift_ids)
+        for i in range(len(swift_ids)): # need to look into writing an array at once a file, and formating
+            #print(i)
+            f.write(swift_ids[i])
+            f.write(' ')
+            f.write(str(swift_chime_map[swift_ids[i]]))
+            f.write(' ')
+            f.write(str(ras[swift_ids[i]]))
+            f.write(' ')
+            f.write(str(decs[swift_ids[i]]))
+            f.write(' ')
+            f.write(str(ra_err[swift_ids[i]]))
+            f.write(' ')
+            f.write(str(dec_err[swift_ids[i]]))
+            f.write(' ')
+            f.write('name_here')
+            f.write('\n')
+
+    s = 'swift_id 30A \n CHIME_id 30A \n ra E deg \n dec E deg \n ra_err E deg \n dec_err E deg \n name 30A'
+    ascii = s.encode('ascii')
+    with open('descript_file', 'wb') as f:
+        f.write(ascii)
+    subprocess.run(['ftcreate  descript_file CHIME_FRB_Catalog.col outfile=test_cat clobber=True' ],
+                       shell=True,)
+    # move into results dir
 
     return
 #-----------------------------------------------------------------------------#
@@ -315,16 +399,21 @@ def run_search():
     #swift_ids = get_swift_ids_data(data_dir)
 
     swift_ids, tsar_arr, chime_ids, chime_trigger = get_gauno_info(data_dir,guano_dump)
+
     swift_ids = str_swift_id(swift_ids) # makes swift ID into a str this is
 
-    chime_ra, chime_dec, chime_ra_err, chime_dec_err = get_sky_local(data_dir, sky_local)
+    chime_ra, chime_dec, chime_ra_err, chime_dec_err = get_chime_sky_local(data_dir, sky_local)
 
     swift_chime_trigger = get_swift_time_from_chime(chime_trigger, swift_ids)
 
-    swift_ra, swift_ra_err, swift_dec, swift_dec_err = swift_sky_local(data_dir, sky_local,swift_ids, chime_ids)
+    swift_ra, swift_ra_err, swift_dec, swift_dec_err, swift_chime_map = swift_sky_local(data_dir, sky_local,swift_ids, chime_ids)
     #swift_ids = get_swift_ids_data(data_dir)
     swift_ids = np.asarray(list(swift_ra.keys()))
+
+
     event_dir, hk_dir, results_dir = get_dir_trees(swift_ids,data_dir,results)
+
+    creat_frb_catalog(swift_ids, swift_ra, swift_dec, swift_ra_err, swift_dec_err, swift_chime_map)
 
     print('Running HEASOFT analysis over BAT Files')
     for i in tqdm(range(len(swift_ids))): # tqdm is for progress bar
@@ -332,8 +421,8 @@ def run_search():
 
         swift_id = swift_ids[i]
 
-        evt_start = float(swift_chime_trigger[swift_id]) - 1.5
-        evt_end = float(swift_chime_trigger[swift_id]) + 1.5
+        evt_start = float(swift_chime_trigger[swift_id]) - 1
+        evt_end = float(swift_chime_trigger[swift_id]) + 1
 
         bck_start = float(swift_chime_trigger[swift_id]) - 40
         bck_end = float(swift_chime_trigger[swift_id]) - 20
@@ -342,7 +431,7 @@ def run_search():
         for j in evt_files:
             run_heasoft(swift_id, j, results, event_dir[swift_id],
             hk_dir[swift_id], results_dir[swift_id],
-            evt_start,evt_end,bck_start,bck_end , clobber=clobber,energy_bins=14-175, time_res=1,)
+            evt_start,evt_end,bck_start,bck_end , clobber=clobber,energy_bins=14-175, time_res=time_res,)
 
 #-----------------------------------------------------------------------------#
 def main():

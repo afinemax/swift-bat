@@ -186,22 +186,47 @@ def wrapper_evt_detect_heasoft(swift_id, evt_file, tstart, tstop,
 # outdir = results_dir
 # timdel = '1'
 # need to finish docstring, rebuilding
-def run_search_on_target(swift_id, ra, dec, trigger_time, ra_error, dec_error):
+
+def run_search(cat_file, outdir, datadir, energy_bins, timedel,
+                       incatalog, clobber=clobber, snrthresh=3.5, log=print):
+    '''Main program'''
+
+    swift_id, ra, dec, ra_err, dec_err, swift_trig_time, chime_id = read_in_catalog_file(incatalog)
+
+    log('running search over ' + str(len(swift_id)) + ' targets')
+    for i in tqdm(range(len(swift_id))):
+        # need to add
+        # download swift/bat data for target if doesnt already exist
+
+        cwd = outdir + '/' + swift_id[i]
+        bck_tstart = float(swift_trig_time[i]) - 70
+        bck_tstop = float(swift_trig_time[i]) - 10
+
+        run_search_on_target(swift_id[i], ra[i], dec[i], energy_bins, timedel, incatalog, cwd, outdir,
+                             swift_trig_time[i], ra_err[i], dec_err[i], bck_tstart, bck_tstop, snrthresh,log)
+
+        return
+def run_search_on_target(swift_id, ra, dec, energy_bins, timdel, incatalog, cwd, outdir,
+                         trigger_time, ra_error, dec_error, bck_tstart, bck_tstop, snrthresh, log=print):
     '''Main function runs search on single SWIFT/BAT target '''
 
+
+    #log('Running Search on ' + swift_id)
     with open(results_dir + '/' + 'log.txt','wt',) as f:
         stdout = f
         stderr = f
 
         # check for existance of data around chime trigger
-        evt_file, bck_tstart, bck_tstop = inspect_evt_file()
+        #evt_file, bck_tstart, bck_tstop = inspect_evt_file()
 
         # move files into outdir, produce mask, bck_dpi
-        wrapper_bgck_heasoft(swift_id, outdir, evt_file, tstart,
-                         tstop, stdout=stdout, stderr = stderr)
+        wrapper_bgck_heasoft(swift_id, outdir, evt_file, bck_tstart,
+                         bck_tstop, stdout=stdout, stderr = stderr)
+
+        # might want to move catalog file into outdir for convience?
 
         # produce lc
-        heafsoft_lc(evt_file, '15-150', '1', cwd, stdout=stdout, stderr=stderr, clobber = clobber)
+        heafsoft_lc(evt_file, energy_bins, timdel, cwd, stdout=stdout, stderr=stderr, clobber = clobber)
 
         # plots lc
         plot_lc()
@@ -214,34 +239,56 @@ def run_search_on_target(swift_id, ra, dec, trigger_time, ra_error, dec_error):
 
             # produces evt_dpi, and sky_image, looks for sources
             wrapper_evt_detect_heasoft(swift_id, evt_file, tstart, tstop,
-                               incatalog='test_cat', outcatalog = 'out.cat',
-                               cwd=results_dir, snrthresh='3.5', stdout=stdout,
+                               incatalog=incatalog, outcatalog = 'out.cat',
+                               cwd=cwd, snrthresh=snrthresh, stdout=stdout,
                                stderr=stderr, clobber = clobber)
 
 
             # searches outcatalog from batcelldetect for sources found near target, if found writes to file / break
-            # at the moment just prints if it found something 
-            search_out_catalog(outir=results_dir, outcatalog='out.cat', RA_target=ra,
+            # at the moment just prints if it found something
+            search_out_catalog(outir=cwd, outcatalog='out.cat', RA_target=ra,
                                DEC_target=dec, radius_2=5**2)
 
         # if batcelldetect does not detect a source IE low SNR some function to establish flux limit?
         # make noise image (maybe make this as a default output?)
 
     return
+
 #-----------------------------------------------------------------------------#
 # non-heasoft functions related to running search
 def read_in_catalog_file(cat_file):
+    'WIP for format, as at the moment batcelldetect is not working as intended'
 
-    # expected format
-   #'swift_id' - dtype = 'S30', 'CHIME_id', 'S30', 'ra', '>f4', 'dec', '>f4', 'ra_err', '>f4','dec_err', '>f4',
-   # 'name', 'S30'
+    # I think part of the problem for batcelldetect is my dtype could be wrong?
+    # swift_id ra, dec, ra_err, dec_err, swift_trig_time, chime_id
     with fits.open(cat_file) as hdul:
             #hdul.info()
-            header_dict = hdul[0].header
+            #header_dict = hdul[0].header
 
             data = hdul[1].data
 
-    return data
+    swift_id = []
+    ra = np.zeros(len(data))
+    dec = np.zeros(len(data))
+    ra_err = np.zeros(len(data))
+    dec_err = np.zeros(len(data))
+    swift_trig_time = np.zeros(len(data))
+    chime_id = []
+    for i in range(len(data)):
+        swift_id.append(data[i][0])
+        ra[i] = data[i][1]
+        dec[i] = data[i][2]
+        ra_err[i] = data[i][3]
+        dec_err[i] = data[i][4]
+        swift_trig_time[i] = data[i][0]
+        chime_id.append(data[i][0])
+
+
+    # string as to not loose leading zeros
+    swift_id = np.asarray(swift_id)
+    # while this var is called chime_id its really the cross refrence name
+    chime_id = np.asarray(chime_id)
+    return swift_id, ra, dec, ra_err, dec_err, swift_trig_time, chime_id
 
 # need to remake / not finished
 def plot_lc(): # plots lc
@@ -307,8 +354,13 @@ def main():
     args = parser.parse_args()
     make_plots = True
     show_plots = True
+    cat_file = 'test_cat'
+    outdir = '../results'
+    datadir = '../data'
+    energy_bins = ''15-25-50-100-350''
 
-    run_search()
+    run_search(cat_file, outdir, datadir, energy_bins, timedel,
+                           incatalog, clobber=clobber, snrthresh=3.5, log=print)
 #-----------------------------------------------------------------------------#
 if __name__ == "__main__":
     main()

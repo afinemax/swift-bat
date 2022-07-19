@@ -39,6 +39,46 @@ from tqdm import tqdm
 from swifttools.swift_too import Clock, ObsQuery, VisQuery
 from datetime import datetime,timedelta
 
+
+# will be command line entries eventually
+results = '../results'
+file_ext = '.pdf' # for the outputted plots
+data_dir = '../data'
+datadir = data_dir
+sky_local = 'sky_frb.tsv'
+guano_dump = 'GUANO dump inventory - GUANO triggers.tsv'
+# args
+clobber = True # if true remakes/overwrites files
+time_res = 0.1 # seconds
+energy_bins = 14-175
+source_id = '00010374156'
+swift_id = source_id
+evt_file = 'sw00010374156bevshsl_uf.evt.gz'
+snr_cutoff = 5
+#tstart=' + str(evt_start)639072334.000000 tstop=639072896.800600'
+
+
+events = '/bat/event'
+event_dir = data_dir + '/' + source_id + events
+hk_dir = data_dir + '/' +source_id + '/bat/hk'
+results_dir = results + '/' + source_id
+outdir = results_dir
+#
+cat_file = 'test_cat'
+
+evt_start = 618680512.304
+evt_end = 618680513.328
+bck_start = evt_start -40
+bck_end = evt_start -20
+
+tstart = evt_start
+tend =evt_end
+
+tstop = evt_end
+
+ra = 15.8908
+dec = -73.8580
+j = evt_file
 #-----------------------------------------------------------------------------#
 # heasoft functions
 # need to add a function to create a noise image
@@ -49,20 +89,22 @@ def create_heasoft_outdir(swift_id, cwd, stdout=None, stderr=None):
                         stdout=stdout, stderr=stderr)
     return
 
-def move_ess_heasoft_files(swift_id, evt_file, outdir,
+def move_ess_heasoft_files(swift_id, evt_file, outdir, datadir,
                             stdout=None, stderr = None):
     '''Moves necessary SWIFT/BAT files into outdir for convience in generating
     heasoft outputs'IMPORTANT relative paths need to be updated / set to
     variables for final script!'''
 
+    hk_dir = datadir + '/' + swift_id + '/bat/hk'
+
 # IMPORTANT relative paths need to be updated / set to variables for final script
     subprocess.run(['cp ' +str(hk_dir) + '/sw' + swift_id + 'bdecb.hk.gz '
-                    + str(results_dir) + '/sw' + swift_id + 'bdecb.hk.gz'  ],
+                    + str(outdir) + '/sw' + swift_id + 'bdecb.hk.gz'  ],
                     shell=True, cwd = '../data', stdout = stdout,
                     stderr =stderr)
 
     subprocess.run(['cp data/' +str(swift_id) + '/auxil/sw' + swift_id
-                    + 'sat.fits.gz '+ 'data/' + str(results_dir) + '/sw'
+                    + 'sat.fits.gz '+ 'data/' + str(outdir) + '/sw'
                     + swift_id + 'sat.fits.gz' ],
                     shell=True, cwd = '..', stdout = stdout, stderr =stdout)
 
@@ -72,22 +114,22 @@ def move_ess_heasoft_files(swift_id, evt_file, outdir,
     return
 
 
-def heafsoft_mask(swift_id, evt_file, cwd, stdout=None,
+def heafsoft_mask(swift_id, evt_file, outdir, stdout=None,
                     stderr=None, clobber = clobber):
     '''Procduces SWIFT/bat detector mask by running 'bathotpix
         and 'batbinevt' '''
 
     subprocess.run(['batbinevt ' + str(evt_file) + ' weighted=no outunits=counts'
                     + ' outtype=dpi energy=- clobber=' + str(clobber)
-                    + ' outfile= frb.dpi.mask'], cwd = cwd, shell=True,
+                    + ' outfile= frb.dpi.mask'], cwd = outdir, shell=True,
                     stdout = stdout, stderr =stderr)
 
     subprocess.run(['bathotpix detmask=sw' +  swift_id + 'bdecb.hk.gz outfile ='
                     +' frb.mask infile= frb.dpi.mask clobber =' + str(clobber) ],
-                    shell=True, cwd=cwd, stdout = stdout, stderr =stderr)
+                    shell=True, cwd=outdir, stdout = stdout, stderr =stderr)
     return
 
-def heafsoft_lc(evt_file, energybins, timdel, cwd, stdout=None, stderr=None, clobber = clobber):
+def heafsoft_lc(evt_file, energybins, timdel, cwd=outdir, stdout=None, stderr=None, clobber = clobber):
     ''' Creates lightcurve of specified SWIFT/BAT evt_file using its assocaited mask
 
     Inputs:
@@ -96,8 +138,8 @@ def heafsoft_lc(evt_file, energybins, timdel, cwd, stdout=None, stderr=None, clo
     timdel = specified timeresolution '''
 
     subprocess.run(['batbinevt detmask=frb.mask ' + str(evt_file)
-                    + ' timedel = ' + timdel  + ' weighted = no outtype ='
-                    + ' lc energybins =' + energybins
+                    + ' timedel = ' + str(timdel)  + ' weighted = no outtype ='
+                    + ' lc energybins = ' + energybins
                     + ' outfile = frb.lc clobber ='
                     + str(clobber) ],
                     shell=True, cwd=cwd, stdout = stdout, stderr =stderr)
@@ -150,14 +192,14 @@ def heafsoft_batcelldetect(sky_image, cwd, incatalog, outcatalog='cat.fits', snr
 
 
 def wrapper_bgck_heasoft(swift_id, outdir, evt_file, tstart,
-                         tstop, stdout=None, stderr = None):
+                         tstop, datadir, stdout=None, stderr = None):
     '''Wrapper function: moves files, produces mask , and produces background dpi'''
 
-    move_ess_heasoft_files(swift_id, evt_file, outdir, stdout=None, stderr = None)
+    move_ess_heasoft_files(swift_id, evt_file, outdir, datadir, stdout=None, stderr = None)
 
     cwd=outdir
 
-    heafsoft_mask(swift_id, evt_file, cwd=outdir, stdout=stdout, stderr=None, clobber = clobber)
+    heafsoft_mask(swift_id, evt_file, outdir, stdout=stdout, stderr=None, clobber = clobber)
 
     heafsoft_bgck_dpi(evt_file, tstart, tstop, cwd,
                       stdout=stdout, stderr=stderr, clobber = clobber)
@@ -181,72 +223,83 @@ def wrapper_evt_detect_heasoft(swift_id, evt_file, tstart, tstop,
                            stdout=stdout, stderr=stdout, clobber = clobber)
     return
 #-----------------------------------------------------------------------------#
+# non-heasoft functions related to running search
 
-# cwd = results_dir
-# outdir = results_dir
-# timdel = '1'
-# need to finish docstring, rebuilding
-
-def run_search(cat_file, outdir, datadir, energy_bins, timedel,
-                       incatalog, clobber=clobber, snrthresh=3.5, log=print):
+def run_search(incatalog, outdir, datadir, energy_bins, timedel,
+               clobber=clobber, snrthresh='3.5', log=print,swift_evt_file_ending='bevshpo_uf.evt.gz'):
     '''Main program'''
 
     swift_id, ra, dec, ra_err, dec_err, swift_trig_time, chime_id = read_in_catalog_file(incatalog)
 
-    log('running search over ' + str(len(swift_id)) + ' targets')
-    for i in tqdm(range(len(swift_id))):
+   # log('running search')
+    for i in tqdm(range(len(swift_id)),desc='search over '+ str(len(swift_id)) + ' targets'):
         # need to add
         # download swift/bat data for target if doesnt already exist
 
-        cwd = outdir + '/' + swift_id[i]
-        bck_tstart = float(swift_trig_time[i]) - 70
-        bck_tstop = float(swift_trig_time[i]) - 10
+        resultsdir = outdir + '/' + swift_id[i]
+        bck_tstart = str(float(swift_trig_time[i]) - 70)
+        bck_tstop = str(float(swift_trig_time[i]) - 20)
 
-        run_search_on_target(swift_id[i], ra[i], dec[i], energy_bins, timedel, incatalog, cwd, outdir,
-                             swift_trig_time[i], ra_err[i], dec_err[i], bck_tstart, bck_tstop, snrthresh,log)
+        run_search_on_target(swift_id[i], ra[i], dec[i], energy_bins, timedel,
+                             incatalog, resultsdir, datadir,
+                             swift_trig_time[i], ra_err[i], dec_err[i],
+                             bck_tstart, bck_tstop, snrthresh,log, outdir)
 
-        return
-def run_search_on_target(swift_id, ra, dec, energy_bins, timdel, incatalog, cwd, outdir,
-                         trigger_time, ra_error, dec_error, bck_tstart, bck_tstop, snrthresh, log=print):
+    return
+
+def run_search_on_target(swift_id, ra, dec, energy_bins, timdel, incatalog, outdir, datadir,
+                         trigger_time, ra_error, dec_error, bck_tstart,
+                         bck_tstop, snrthresh, log=print, swift_evt_file_ending='bevshpo_uf.evt.gz'):
     '''Main function runs search on single SWIFT/BAT target '''
 
-
-    #log('Running Search on ' + swift_id)
-    with open(results_dir + '/' + 'log.txt','wt',) as f:
+    with open(outdir + '/' + 'log.txt','wt',) as f:
         stdout = f
         stderr = f
+
+        results = outdir[0:-(len(swift_id) + 1)]
+
+
+        create_heasoft_outdir(swift_id, outdir=results, stdout=None, stderr=None)
+
+        evt_file = get_evt_file(swift_id, swift_evt_file_ending='bevshpo_uf.evt.gz')
+
 
         # check for existance of data around chime trigger
         #evt_file, bck_tstart, bck_tstop = inspect_evt_file()
 
         # move files into outdir, produce mask, bck_dpi
         wrapper_bgck_heasoft(swift_id, outdir, evt_file, bck_tstart,
-                         bck_tstop, stdout=stdout, stderr = stderr)
+                         bck_tstop, datadir, stdout=stdout, stderr = stderr)
 
         # might want to move catalog file into outdir for convience?
 
         # produce lc
-        heafsoft_lc(evt_file, energy_bins, timdel, cwd, stdout=stdout, stderr=stderr, clobber = clobber)
+        heafsoft_lc(evt_file, energy_bins, timdel,
+                    cwd=outdir, stdout=stdout, stderr=stderr, clobber = clobber)
 
         # plots lc
         plot_lc()
 
         # generates times to search for events
-        evt_tstart, evt_tstop = get_time_windows()
+          #evt_tstart, evt_tstop = get_time_windows(trigger_time)
+        evt_start = trigger_time
+        evt_tstop = trigger_time + 1
 
-        # print here? 'Running Search for swift_id'
-        for i in range(len([evt_start])): # progress bar
+
+        # progress bar
+        for i in tqdm(range(len([evt_start])),leave=False,
+                      desc='searching ' + str(len([evt_start])) +' time windows'):
 
             # produces evt_dpi, and sky_image, looks for sources
             wrapper_evt_detect_heasoft(swift_id, evt_file, tstart, tstop,
                                incatalog=incatalog, outcatalog = 'out.cat',
-                               cwd=cwd, snrthresh=snrthresh, stdout=stdout,
+                               cwd=outdir, snrthresh=snrthresh, stdout=stdout,
                                stderr=stderr, clobber = clobber)
 
 
             # searches outcatalog from batcelldetect for sources found near target, if found writes to file / break
             # at the moment just prints if it found something
-            search_out_catalog(outir=cwd, outcatalog='out.cat', RA_target=ra,
+            search_out_catalog(outir=outdir, outcatalog='out.cat', RA_target=ra,
                                DEC_target=dec, radius_2=5**2)
 
         # if batcelldetect does not detect a source IE low SNR some function to establish flux limit?
@@ -254,8 +307,13 @@ def run_search_on_target(swift_id, ra, dec, energy_bins, timdel, incatalog, cwd,
 
     return
 
-#-----------------------------------------------------------------------------#
-# non-heasoft functions related to running search
+
+def create_heasoft_outdir(swift_id, outdir, stdout=None, stderr=None):
+    '''Creates outdir for outputs to be placed in'''
+
+    subprocess.run(['mkdir -p ' + str(swift_id)], cwd=outdir, shell=True, stdout=stdout, stderr=stderr)
+    return
+
 def read_in_catalog_file(cat_file):
     'WIP for format, as at the moment batcelldetect is not working as intended'
 
@@ -275,17 +333,17 @@ def read_in_catalog_file(cat_file):
     swift_trig_time = np.zeros(len(data))
     chime_id = []
     for i in range(len(data)):
-        swift_id.append(data[i][0])
+        swift_id.append(str(data[i][0]))
         ra[i] = data[i][1]
         dec[i] = data[i][2]
         ra_err[i] = data[i][3]
         dec_err[i] = data[i][4]
         swift_trig_time[i] = data[i][0]
-        chime_id.append(data[i][0])
+        chime_id.append((data[i][0]))
 
 
     # string as to not loose leading zeros
-    swift_id = np.asarray(swift_id)
+    #swift_id = np.asarray(swift_id)
     # while this var is called chime_id its really the cross refrence name
     chime_id = np.asarray(chime_id)
     return swift_id, ra, dec, ra_err, dec_err, swift_trig_time, chime_id
@@ -330,6 +388,11 @@ def get_time_windows():
 def inspect_evt_file():
     return evt_file, tstart, tstop
 
+def get_evt_file(swift_id, swift_evt_file_ending='bevshpo_uf.evt.gz'):
+    '''Returns string of filename for SWIFT/bat event file based on its swift id'''
+    evt_file = 'sw' + swift_id + swift_evt_file_ending
+    return evt_file
+
 #-----------------------------------------------------------------------------#
 def main():
     import argparse
@@ -352,15 +415,20 @@ def main():
         #                help="Intensity units of the data. [Jy/beam]")
     #units          = args.units
     args = parser.parse_args()
-    make_plots = True
-    show_plots = True
-    cat_file = 'test_cat'
-    outdir = '../results'
+    outdir='../results'
     datadir = '../data'
-    energy_bins = ''15-25-50-100-350''
+    #timedel = 1
+    timedel = '1'
+    incatalog = 'test_cat'
+    energy_bins = '5-25, 25-50, 50-100, 100-350'
+    swift_evt_file_ending='bevshpo_uf.evt.gz'
+    clobber = True
+    snrthresh = '5'
+    log=print
 
-    run_search(cat_file, outdir, datadir, energy_bins, timedel,
-                           incatalog, clobber=clobber, snrthresh=3.5, log=print)
+    run_search(incatalog, outdir, datadir, energy_bins, timedel,
+               clobber=clobber, snrthresh=snrthresh, log=print,
+               swift_evt_file_ending=swift_evt_file_ending)
 #-----------------------------------------------------------------------------#
 if __name__ == "__main__":
     main()

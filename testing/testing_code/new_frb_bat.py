@@ -114,7 +114,7 @@ def move_ess_heasoft_files(swift_id, evt_file, outdir, datadir,
     return
 
 
-def heafsoft_mask(swift_id, evt_file, outdir, stdout=None,
+def heasoft_mask(swift_id, evt_file, outdir, stdout=None,
                     stderr=None, clobber = clobber):
     '''Procduces SWIFT/bat detector mask by running 'bathotpix
         and 'batbinevt' '''
@@ -129,7 +129,7 @@ def heafsoft_mask(swift_id, evt_file, outdir, stdout=None,
                     shell=True, cwd=outdir, stdout = stdout, stderr =stderr)
     return
 
-def heafsoft_lc(evt_file, energybins, timdel, cwd=outdir, stdout=None, stderr=None, clobber = clobber):
+def heasoft_lc(evt_file, energy_bins, timdel, cwd=outdir, stdout=None, stderr=None, clobber = clobber):
     ''' Creates lightcurve of specified SWIFT/BAT evt_file using its assocaited mask
 
     Inputs:
@@ -139,41 +139,42 @@ def heafsoft_lc(evt_file, energybins, timdel, cwd=outdir, stdout=None, stderr=No
 
     subprocess.run(['batbinevt detmask=frb.mask ' + str(evt_file)
                     + ' timedel = ' + str(timdel)  + ' weighted = no outtype ='
-                    + ' lc energybins = ' + energybins
+                    + ' lc energybins = ' + energy_bins
                     + ' outfile = frb.lc clobber ='
                     + str(clobber) ],
                     shell=True, cwd=cwd, stdout = stdout, stderr =stderr)
     return
 
-def heafsoft_bgck_dpi(evt_file, tstart, tstop, cwd,
-                      stdout=None, stderr=None, clobber = clobber):
-    '''Runs 'batbinevt' to create background dpi for the given evt_file
-        from tstart to tstop'''
-
-    # this is the same as heafsoft_evt_dpi besides output name
-    subprocess.run(['batbinevt '  + str(evt_file)
-                    + ' outfile = bkg.dpi energybins=- timebinalg=u'
-                    + ' clobber= ' + str(clobber)
-                    +  ' outtype=dpi detmask=frb.mask '
-                    + ' tstart=' + str(tstart) + ' tstop=' + str(tstop)],
-                       stdout=stdout , stderr=stderr, cwd=cwd , shell=True,  )
-    return
-
-def heafsoft_evt_dpi(evt_file, tstart, tstop, cwd,
+def heasoft_evt_dpi(evt_file, tstart, tstop, cwd,
                       stdout=None, stderr=None, clobber = clobber):
     '''Runs 'batbinevt' to create event dpi for the given evt_file
     from tstart to tstop'''
 
-    # this is the same as heafsoft_bgck_dpi besides output name
+    # this is the same as heasoft_bgck_dpi besides output name
     subprocess.run(['batbinevt '  + str(evt_file)
                     + ' outfile = evt.dpi energybins=- timebinalg=u'
-                    + ' clobber=' + str(clobber) +  ' outtype=dpi'
-                    + ' detmask=frb.mask '
+                    + ' clobber= ' + str(clobber)
+                    + ' outtype=dpi detmask=frb.mask weighted=no timedel=0.0'
                     + ' tstart=' + str(tstart) + ' tstop=' + str(tstop)],
                        stdout=stdout , stderr=stderr, cwd=cwd , shell=True,  )
     return
 
-def heafsoft_sky_image(swift_id, cwd, stdout=None, stderr=None, clobber = clobber):
+def heasoft_bgck_dpi(evt_file, tstart, tstop, cwd,
+                      stdout=None, stderr=None, clobber = clobber):
+    '''Runs 'batbinevt' to create background dpi for the given evt_file
+        from tstart to tstop'''
+
+    # this is the same as heasoft_evt_dpi besides output name
+    subprocess.run(['batbinevt '  + str(evt_file)
+                    + ' outfile = bkg.dpi energybins=- timebinalg=u'
+                    + ' clobber= ' + str(clobber)
+                    + ' outtype=dpi detmask=frb.mask weighted=no timedel=0.0'
+                    + ' tstart=' + str(tstart) + ' tstop=' + str(tstop)],
+                       stdout=stdout , stderr=stderr, cwd=cwd , shell=True,  )
+
+    return
+
+def heasoft_sky_image(swift_id, cwd, stdout=None, stderr=None, clobber = clobber):
     ''' Creates sky image using 'batfftimage' and the evt.dpi and bgck.dpi files '''
 
     subprocess.run(['batfftimage evt.dpi attitude = sw' + swift_id + 'sat.fits.gz detmask=frb.mask'
@@ -181,7 +182,7 @@ def heafsoft_sky_image(swift_id, cwd, stdout=None, stderr=None, clobber = clobbe
                        shell=True, cwd = cwd, stdout = stdout, stderr =stderr)
     return
 
-def heafsoft_batcelldetect(sky_image, cwd, incatalog, outcatalog='cat.fits', snrthresh='3.5',
+def heasoft_batcelldetect(sky_image, cwd, incatalog, outcatalog='cat.fits', snrthresh='3.5',
                            stdout=None, stderr=None, clobber = clobber):
     '''Runs 'batcelldetect' over sky image'''
 
@@ -199,9 +200,9 @@ def wrapper_bgck_heasoft(swift_id, outdir, evt_file, tstart,
 
     cwd=outdir
 
-    heafsoft_mask(swift_id, evt_file, outdir, stdout=stdout, stderr=None, clobber = clobber)
+    heasoft_mask(swift_id, evt_file, outdir, stdout=stdout, stderr=None, clobber = clobber)
 
-    heafsoft_bgck_dpi(evt_file, tstart, tstop, cwd,
+    heasoft_bgck_dpi(evt_file, tstart, tstop, cwd,
                       stdout=stdout, stderr=stderr, clobber = clobber)
 
     return
@@ -209,17 +210,17 @@ def wrapper_bgck_heasoft(swift_id, outdir, evt_file, tstart,
 
 def wrapper_evt_detect_heasoft(swift_id, evt_file, tstart, tstop,
                                incatalog='test_cat', outcatalog = 'out.cat',
-                               cwd=results_dir, snrthresh='3.5', stdout=None,
+                               cwd=outdir, snrthresh='3.5', stdout=None,
                                stderr=None, clobber = clobber):
 
     '''Wrapper function: makes evt_dpi, sky image , and runs batcelldetect'''
 
-    heafsoft_evt_dpi(evt_file, tstart, tstop, cwd,
+    heasoft_evt_dpi(evt_file, tstart, tstop, cwd,
                       stdout=stdout, stderr=stderr, clobber = clobber)
 
-    heafsoft_sky_image(swift_id, cwd, stdout=stdout, stderr=stderr, clobber = clobber)
+    heasoft_sky_image(swift_id, cwd, stdout=stdout, stderr=stderr, clobber = clobber)
 
-    heafsoft_batcelldetect('frb.sky', cwd, incatalog, outcatalog, snrthresh='3.5',
+    heasoft_batcelldetect('frb.sky', cwd, incatalog, outcatalog, snrthresh=snrthresh,
                            stdout=stdout, stderr=stdout, clobber = clobber)
     return
 #-----------------------------------------------------------------------------#
@@ -239,7 +240,7 @@ def run_search(incatalog, outdir, datadir, energy_bins, timedel,
         resultsdir = outdir + '/' + swift_id[i]
         bck_tstart = str(float(swift_trig_time[i]) - 70)
         bck_tstop = str(float(swift_trig_time[i]) - 20)
-
+        print('On target')
         run_search_on_target(swift_id[i], ra[i], dec[i], energy_bins, timedel,
                              incatalog, resultsdir, datadir,
                              swift_trig_time[i], ra_err[i], dec_err[i],
@@ -252,15 +253,15 @@ def run_search_on_target(swift_id, ra, dec, energy_bins, timdel, incatalog, outd
                          bck_tstop, snrthresh, log=print, swift_evt_file_ending='bevshpo_uf.evt.gz'):
     '''Main function runs search on single SWIFT/BAT target '''
 
+    results = outdir[0:-(len(swift_id) + 1)]
+    create_heasoft_outdir(swift_id, outdir=results, stdout=None, stderr=None)
+
     with open(outdir + '/' + 'log.txt','wt',) as f:
         stdout = f
         stderr = f
 
-        results = outdir[0:-(len(swift_id) + 1)]
 
-
-        create_heasoft_outdir(swift_id, outdir=results, stdout=None, stderr=None)
-
+        print('starting ')
         evt_file = get_evt_file(swift_id, swift_evt_file_ending='bevshpo_uf.evt.gz')
 
 
@@ -274,11 +275,14 @@ def run_search_on_target(swift_id, ra, dec, energy_bins, timdel, incatalog, outd
         # might want to move catalog file into outdir for convience?
 
         # produce lc
-        heafsoft_lc(evt_file, energy_bins, timdel,
+        heasoft_lc(evt_file, energy_bins, timdel,
                     cwd=outdir, stdout=stdout, stderr=stderr, clobber = clobber)
 
         # plots lc
-        plot_lc()
+        time_window='10'
+        lc_file = 'frb.lc'
+        light_curve_analysis(swift_id, trigger_time,
+        time_window, lc_file, energy_bins, outdir)
 
         # generates times to search for events
           #evt_tstart, evt_tstop = get_time_windows(trigger_time)
@@ -291,7 +295,7 @@ def run_search_on_target(swift_id, ra, dec, energy_bins, timdel, incatalog, outd
                       desc='searching ' + str(len([evt_start])) +' time windows'):
 
             # produces evt_dpi, and sky_image, looks for sources
-            wrapper_evt_detect_heasoft(swift_id, evt_file, tstart, tstop,
+            wrapper_evt_detect_heasoft(swift_id, evt_file, evt_start, evt_tstop,
                                incatalog=incatalog, outcatalog = 'out.cat',
                                cwd=outdir, snrthresh=snrthresh, stdout=stdout,
                                stderr=stderr, clobber = clobber)
@@ -299,13 +303,154 @@ def run_search_on_target(swift_id, ra, dec, energy_bins, timdel, incatalog, outd
 
             # searches outcatalog from batcelldetect for sources found near target, if found writes to file / break
             # at the moment just prints if it found something
-            search_out_catalog(outir=outdir, outcatalog='out.cat', RA_target=ra,
+            search_out_catalog(outdir=outdir, outcatalog='out.cat', RA_target=ra,
                                DEC_target=dec, radius_2=5**2)
 
         # if batcelldetect does not detect a source IE low SNR some function to establish flux limit?
         # make noise image (maybe make this as a default output?)
 
     return
+
+
+def light_curve_analysis(swift_id, trig_time, time_window, lc_file, energy_bans, outdir):
+    '''Searches for SNR peaks in the light curve in the search window by computing a
+    running average with logscale time-window sizes
+    returns SNR_peak_value, SNR_peak_time (compared to trig time), LC_analysis'''
+
+    # this works but is kinda slow
+    # is there a faster way?
+
+    with fits.open(outdir + '/' + lc_file) as hdul:
+        #hdul.info()
+        header_dict = hdul[0].header
+        time = hdul[1].data["Time"]
+        rate = hdul[1].data['rate']
+        error = hdul[1].data['error']
+        totcounts = hdul[1].data['totcounts']
+        # fracexp = hdul[1].data['FRACEXP']
+        # columns = hdul[1].data.columns
+    bans = energy_bans.split(',')
+    bans
+
+    search_time_res = np.logspace(-4, 0, 5) # not user specified atm
+    #s, trigger time +/- this is the search window
+
+    # calcualte base SNR as running average fails for same time_res
+    n = len(rate[0])
+    peak_snr_arr = np.empty((len(search_time_res),n))
+    peak_snr_arr_old = np.copy(peak_snr_arr)
+    peak_snr_arr_new = np.copy(peak_snr_arr)
+    time_res = time[1]-time[0]
+    rate_dict = {}
+    snr_dict = {}
+    time_dict = {}
+    results_dict = {}
+    for k in range(len(search_time_res)):
+        time_ratio = (time_res / search_time_res[k])
+        new_bins = time_ratio * len(time)
+        snr_dict[search_time_res[k]] = {}
+        time_dict[search_time_res[k]] = {}
+        rate_dict[search_time_res[k]] = {}
+        # improve window_size code, this could be made to be more efficient
+        window_size = time_ratio
+        if np.floor(np.log10(search_time_res[k])) == -4:
+            window_size = 1
+        for i in range(n):
+            new_rate_i = moving_average(rate[:,i], int(window_size**-1) )
+            # new_time might be incorrect! - off by the egde case of moving_average
+            new_time = np.linspace(time[0], time[-1], num=len(new_rate_i))
+            mean = np.mean(new_rate_i)
+            std = np.std(new_rate_i)
+            snr = (new_rate_i - mean) / std
+
+            rate_dict[search_time_res[k]][bans[i]] = new_rate_i
+            snr_dict[search_time_res[k]][bans[i]] = snr
+            time_dict[search_time_res[k]][bans[i]] = new_time
+
+        #    start_i = (np.abs(new_time - (trig_time - time_window ))).argmin()
+            #stop_i = (np.abs(new_time - (trig_time + time_window))).argmin()
+
+            #peak_snr_arr_new[k, i] = np.max(snr[start_i:stop_i])
+
+            peak_snr_arr[k,i] = np.max(snr)
+
+    peak_snr = np.max(peak_snr_arr[:,0])
+    k = np.where(peak_snr == peak_snr_arr[:,0])[0][0]
+    i = np.where(peak_snr == peak_snr_arr)[0][0]
+    idx = (np.abs(snr_dict[search_time_res[k]][bans[i]] - peak_snr)).argmin()
+    time_peak_snr = time_dict[search_time_res[k]][bans[i]][idx]
+
+    results_dict['time_peak_snr'] = time_peak_snr
+    results_dict['peak_snr'] = peak_snr
+    results_dict['peak_time_scale'] = search_time_res[k]
+    results_dict['time_offset'] = trig_time - time_peak_snr
+
+    plot_lc(swift_id, trig_time, rate_dict, snr_dict,
+    search_time_res, time_dict, peak_snr,
+    peak_snr_arr, bans, outdir)
+
+
+    return results_dict, peak_snr_arr_new, peak_snr_arr
+
+def plot_lc(swift_id, trig_time, rate_dict, snr_dict,
+         search_time_res, time_dict, peak_snr,
+         peak_snr_arr, bans, outdir):
+
+    'Plots LC with best found time resolution (from searching on a log basis), and plots rate, and SNR'
+    plt.rcParams.update({'font.size': 20})
+    plt.figure(figsize=(12, 6), dpi=80)
+    k = np.where(peak_snr == peak_snr_arr[:,0])[0][0]
+
+
+    # rate plot
+    for i in range(len(bans)):
+        time = time_dict[search_time_res[k]][bans[i]]
+        rate_i = rate_dict[search_time_res[k]][bans[i]]
+        plt.plot(time-time[0], rate_i, label=bans[i] +' KeV')
+    plt.ylabel('Rate ($s^{-1}$)')
+    plt.xlabel('Time ($s$)')
+    trig_time_plt = find_nearest(time, trig_time)
+    plt.axvline(x=trig_time_plt-time[0], color ='black', linestyle=':', label='Trigger Time')
+    legend = plt.legend(bbox_to_anchor =(1, 1))#,loc='upper right')
+    legend.set_title(r'Time Resolution '+ str(search_time_res[k]) + '$s$')
+    plt.title('Light Curve for ' + str(swift_id) )
+    plt.savefig(outdir + '/lc_plot' + str(swift_id)+ '.pdf')
+
+    # SNR plot
+    plt.rcParams.update({'font.size': 20})
+    plt.figure(figsize=(12, 6), dpi=80)
+    for i in range(len(bans)):
+        time = time_dict[search_time_res[k]][bans[i]]
+        snr_i = snr_dict[search_time_res[k]][bans[i]]
+        plt.plot(time-time[0], snr_i, label=bans[i] +' KeV')
+    plt.ylabel('SNR')
+    plt.xlabel('Time ($s$)')
+    trig_time_plt = find_nearest(time, trig_time)
+    plt.axvline(x=trig_time_plt-time[0], color ='black', linestyle=':', label='Trigger Time')
+
+    # this assumes peak is in the last index for i
+    snr_peak_time = find_element(snr_i, time, peak_snr)
+    plt.axvline(x=snr_peak_time-time[0], color ='purple', linestyle='-.', label='Peak SNR Time (in window)')
+    legend = plt.legend(bbox_to_anchor =(1, 1))#,loc='upper right')
+    legend.set_title(r'Time Resolution '+ str(search_time_res[k]) + '$s$')
+    plt.title('SNR for ' + str(swift_id) )
+    plt.savefig(outdir +'/SNR_plot' + str(swift_id)+ '.pdf')
+
+def moving_average(x, w):
+    return np.convolve(x, np.ones(w), 'valid') / w
+
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]
+
+def find_element(arr1, arr2, value):
+    'returns value of arr2 coresponding to closest value in arr1'
+    arr1 = np.asarray(arr1)
+    arr2 = np.asarray(arr2)
+    idx = (np.abs(arr1 - value)).argmin()
+    return arr2[idx]
+
 
 
 def create_heasoft_outdir(swift_id, outdir, stdout=None, stderr=None):
@@ -338,21 +483,20 @@ def read_in_catalog_file(cat_file):
         dec[i] = data[i][2]
         ra_err[i] = data[i][3]
         dec_err[i] = data[i][4]
-        swift_trig_time[i] = data[i][0]
-        chime_id.append((data[i][0]))
+        swift_trig_time[i] = data[i][5]
+        chime_id.append((data[i][6]))
 
 
     # string as to not loose leading zeros
-    #swift_id = np.asarray(swift_id)
+    swift_id = np.asarray(swift_id)
     # while this var is called chime_id its really the cross refrence name
     chime_id = np.asarray(chime_id)
     return swift_id, ra, dec, ra_err, dec_err, swift_trig_time, chime_id
 
 # need to remake / not finished
-def plot_lc(): # plots lc
-    return None # placeholder
 
-def search_out_catalog(outir, outcatalog, RA_target, DEC_target, radius_2=5**2, evt_window=1, id='test'):
+
+def search_out_catalog(outdir, outcatalog, RA_target, DEC_target, radius_2=2**2, evt_window=1, id='test'):
     with fits.open(str(outdir + '/' + outcatalog)) as hdul:
        # hdul.info()
         header_dict = hdul[0].header
@@ -418,13 +562,15 @@ def main():
     outdir='../results'
     datadir = '../data'
     #timedel = 1
-    timedel = '1'
+    timedel = '1e-4'#'1e-4'
     incatalog = 'test_cat'
-    energy_bins = '5-25, 25-50, 50-100, 100-350'
+    energy_bins = '5-25,25-50,50-100,100-350'
     swift_evt_file_ending='bevshpo_uf.evt.gz'
     clobber = True
-    snrthresh = '5'
+    snrthresh = '6'
     log=print
+    time_window='10'
+    lc_file = 'frb.lc'
 
     run_search(incatalog, outdir, datadir, energy_bins, timedel,
                clobber=clobber, snrthresh=snrthresh, log=print,

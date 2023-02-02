@@ -67,6 +67,8 @@ from swifttools.swift_too import Data
 from swifttools.swift_too import ObsQuery
 from os import listdir
 from os.path import isfile, join
+import json
+from scipy import special
 
 
 def make_outdir(outdir):
@@ -82,15 +84,11 @@ def read_in_catalog(incatalog):
 
     # convert trig time into swift time
     # there must be a faster way of doing this
-    swift_time_arr = np.zeros(len(trig_time))
-    for i in range(len(trig_time[0:5])):
-        cc = Clock()
-        #datetime(2016,12,31,23,59,59)
-        cc = Clock(swifttime=str(trig_time[i]))
-        swift_time_arr[i] = cc.met
-        #print(swift_time)
+    #swift_time_arr = np.zeros(len(trig_time))
+    #for i in range(len(trig_time)):
 
-    return swift_ids, swift_time_arr, chime_ids
+
+    return swift_ids, trig_time, chime_ids
 
 
 def create_heasoft_outdir(swift_id, cwd, stdout=None, stderr=None):
@@ -454,8 +452,10 @@ def lc_analysis(swift_id, evt_file, trig_time, time_window,  energy_bans, outdir
     swift_id = str(swift_id)
 
     time_resolution = 1e-3
-    print('trig_time', trig_time)
+    print('swift id', swift_id)
     lc_file = 'sw' + swift_id + evt_file
+
+    outdir = outdir +'/' + swift_id
 
     # open lc file, read out data
 
@@ -485,7 +485,6 @@ def lc_analysis(swift_id, evt_file, trig_time, time_window,  energy_bans, outdir
     stop_i = np.where(np.abs(time - trig_time - time_window) == np.min(np.abs(time-trig_time - time_window)))[0][0]
 
 
-
     # also in rate domain
     rate_snr_dict = {}
     lc_analysis_dict['bans_dict'] = {}
@@ -502,7 +501,7 @@ def lc_analysis(swift_id, evt_file, trig_time, time_window,  energy_bans, outdir
     # first lets move into SNR space
 
     # -2, 0, 3
-    time_res = np.logspace(-2, 2, 15) #, 0.01, 0.1, 1
+    time_res = np.logspace(-2, np.log10(2*time_window), 10) #, 0.01, 0.1, 1
     for i in tqdm(range(len(time_res)),leave=False,
                   desc='searching ' + str(len(time_res)) +' time windows'):
 
@@ -543,11 +542,23 @@ def lc_analysis(swift_id, evt_file, trig_time, time_window,  energy_bans, outdir
 
     return lc_analysis_dict, rate_snr_dict, time, energy
 
+
+def expected_snr(n_samples):
+
+    snr = special.erfinv((-1/n_samples) + 1) * np.sqrt(2)
+
+    # this sometimes returns negative values
+    # we only care about the + ones
+
+
+    return np.abs(snr) # return postive value only
+
+
 def lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, trig_time,
-                energy_bans, time_window, outdir):
+                energy_bans, time_window, outdir, chime_id, swift_id):
     '''produces plots of the SNR for the best time scale, and plots SNR vs time scale '''
 
-    print('start ')
+
     # determine best SNR
     # I need to filter out the low SNR energy channel prior to this
     # will be done in LC analysiss or based on the energy bands
@@ -562,37 +573,48 @@ def lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, trig_time,
 
 
 
-    something = plt.hist(energy, bins=int(np.sqrt(len(energy))))
+    # new plot
+    # we want SNR vs time scale,
+    # LC and zoomed in LC
+    # if we can print off peak time scale and snr
+    # maybe print swift id and chime id
+    #
+
+    fig, axs = plt.subplots(2, 2, figsize=(16,9),
+        gridspec_kw={'width_ratios': [1, 1.75]})
     fs =15
-    plt.title('Energy Distrubution of Counts', fontsize=fs, color='white')
-    plt.xlabel('KeV', fontsize=fs, color='white')
-    plt.ylabel('N', fontsize =fs, color='white')
-    plt.xlim(0, 550)
-
-    plt.savefig(outdir + 'Energy_distro.pdf')
-    plt.close()
+    plt.yticks(fontsize=fs, color='k')
+    plt.xticks(fontsize=fs, color='k')
 
 
+    # top left
+    counts_hist, bins_hist, etc = axs[0,0].hist(energy, bins=int(np.sqrt(len(energy))), color='green')
+    axs[0, 0].set_title('Energy Distrubution', fontsize=fs, color='k')
+    axs[0,0].set_xlabel('KeV', fontsize=fs, color='k')
+    axs[0,0].set_ylabel('N', fontsize =fs, color='k')
+    axs[0,0].set_xlim(0, 350) # look into xlim
+#    axs[0,0].set_ylim(0, np.max(counts_hist)*1.05)
 
-    # plot snr vs time scale
-    # how to best plot this?
-    # 1 plot with different color scatters? for different enenrgy bans?
-    fs = 12
-    #fig = plt.figure(figsize=(8, 6))
-
+    # bottom left
+    #axs[1, 0].plot(x, -y, 'tab:green')
+    axs[1, 0].set_title('Axis [1, 0]')
     # lets loop through and grap all SNR vs time scale
-
     time_res = []
     snr_val = []
     my_keys = list(lc_analysis_dict['totcounts_dict'].keys())
+
+
     for i in range(len(my_keys) -1):
         i += 1
         time_res.append(float(my_keys[i]))
         snr_val.append(lc_analysis_dict['totcounts_dict'][my_keys[i]])
+    axs[1, 0].scatter(time_res, snr_val, label='Total Counts')
 
+    peak_time_scale = time_res[np.argmax(snr_val)]
+    peak_snr = np.max(snr_val)
+    peak_snr_arr = [peak_snr]
+    time_scales_arr = time_res
 
-
-    plt.scatter(time_res, snr_val, label='Total Counts')
     # now loop through energy bans
     my_keys = list(lc_analysis_dict['bans_dict'].keys())
     for i in range(len(my_keys)):
@@ -604,83 +626,98 @@ def lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, trig_time,
         for j in range(len(time_res_keys)):
             time_res.append(float(time_res_keys[j]))
             snr_val.append(lc_analysis_dict['bans_dict'][energy_ban][time_res_keys[j]]) # changed to j from i
+            # if statment for getting max SNR, and peak time scale
 
-        plt.scatter(time_res, snr_val, label=energy_ban + ' KeV')
+        axs[1, 0].scatter(time_res, snr_val, label=energy_ban + ' KeV')
 
-    plt.legend(fontsize=fs, labelcolor='k',facecolor='white', framealpha=1 )
+        if np.max(snr_val) > peak_snr:
+            peak_snr = np.max(snr_val)
+            peak_time_scale = time_res(np.argmax(snr_val))
+
+
+    time_resolution = peak_time_scale
+
+
+
+    # I should just be able to rerun LC analysis?
+    # now wait this should still be faster
+
     #plt.legend(facecolor='white', framealpha=1)
-    plt.xlabel('Time Scale (s)', fontsize=fs, color='k')
-    plt.ylabel('Peak SNR', fontsize =fs, color='k')
-    plt.yticks(fontsize=fs, color='k')
-    plt.xticks(fontsize=fs, color='k')
-    plt.title('Time Scale vs Peak SNR', fontsize= 15)
-    plt.xscale('log')
-    plt.savefig(outdir + 'peak_SNR_vs_time_scale.pdf',bbox_inches='tight')
-#    plt.show()
-    plt.close()
+    axs[1, 0].set_xlabel('Time Scale (s)', fontsize=fs, color='k')
+    axs[1, 0].set_ylabel('Peak SNR', fontsize =fs, color='k')
+    #axs[1, 0].set_yticks(fontsize=fs, color='k')
+    #axs[1, 0].set_xticks(fontsize=fs, color='k')
+    axs[1, 0].set_title('Time Scale vs Peak SNR', fontsize= 15)
+    axs[1, 0].set_xscale('log')
+
+    timescales = np.logspace(-2,np.log10(2*6.3), 100)#1.8,1000)
+    #timescales = np.linspace(1e-8, 6, 1000)
+
+    snr = np.zeros(len(timescales))
+    time_window = 6
+    n_samples = (2 * time_window )/ timescales
 
 
-    # plot snr tot lc vs time cutout region for search window
+    snr = expected_snr(n_samples)
+    #plt.scatter( timescales,snr)
+    #axs[1,0].set_xlim(.7e-1, np.log10(2*time_window))
+    axs[1, 0].plot(timescales, snr, ':', color='k', label='Expected Noise')
+    axs[1, 0].legend(fontsize=12, labelcolor='k',facecolor='white', ncol=2 )
+
+
+    # right side
+
+
+    legend_time_res = 'Time Resolution: '+ str(time_resolution) + ' s'
+
     snr_arr_tot = lc_analysis_dict['totcounts_dict']['snr_arr']
 
-    fs = 12
-    fig, ax = plt.subplots(2,figsize=(12, 12))
-    plt.yticks(fontsize=fs, color='k')
-    plt.xticks(fontsize=fs, color='k')
-
-
-
     #fig.suptitle()
-    ax[0].set_title('SNR of Total Lightcurve', fontsize=15, color='k')
-    ax[1].set_title('SNR of Search Window', fontsize=15, color='k')
+    axs[0, 1].set_title('SNR of Lightcurve', fontsize=15, color='k')
+    axs[1, 1].set_title('SNR of Search Window', fontsize=15, color='k')
 
-    ax[0].set_xlabel('Time (s)', fontsize=fs, color='k')
-    ax[0].set_ylabel('SNR', fontsize=fs, color='k')
-    ax[0].step(time - time[0],snr_arr_tot)
+    axs[0, 1].set_xlabel('Time (s)', fontsize=fs, color='k')
+    axs[0, 1].set_ylabel('SNR', fontsize=fs, color='k')
+    axs[0, 1].step(time - time[0],snr_arr_tot, color='purple')
+    axs[0,1].axvline(x=trig_time - time[0], linestyle='--', color='k',
+                    label="Trigger Time")
+    axs[0,1].legend(fontsize=fs-2,title=legend_time_res)
 
-    ax[1].set_xlabel('Time (s)', fontsize=fs, color='k')
-    ax[1].set_ylabel('SNR', fontsize=fs, color='k')
-    ax[1].step((time - time[0])[start_i:stop_i],(snr_arr_tot)[start_i:stop_i])
+    axs[1, 1].set_xlabel('Time (s)', fontsize=fs, color='k')
+    axs[1, 1].set_ylabel('SNR', fontsize=fs, color='k')
+    axs[1, 1].step((time - time[0])[start_i:stop_i],
+    (snr_arr_tot)[start_i:stop_i], color='purple')
+    axs[1,1].axvline(x=trig_time - time[0], linestyle='--', color='k',
+                    label="Trigger Time")
+    axs[1,1].legend(fontsize=fs-2,title=legend_time_res)
 
-    plt.savefig(outdir +'SNR_tot_lc.pdf',bbox_inches='tight')
-#    plt.show()
+
+    fig.suptitle("SWIFT ID " + swift_id + '     Peak SNR: '+ str(peak_snr)[0:4]
+    + '\nCHIME ID ' + chime_id +'    Peak Timescale ' + str(time_resolution)[0:4] +'s', size=fs)
+    fig.tight_layout()
+    fig.subplots_adjust(top=0.88)
+    plt.savefig(outdir + 'diagnostic.pdf', bbox_inches='tight')
     plt.close()
 
-    # plot the different energy bans vs time cutout region for search window
-    rate_snr_keys = list(rate_snr_dict.keys())
-    for i in range(len(rate_snr_keys)):
-        my_key = rate_snr_keys[i]
+    # returns peak snr, and peak time scale
+    # want to also return an array of the peak snr, and time scales
 
-        snr_arr = rate_snr_dict[my_key]
-
-        fs = 12
-        fig, ax = plt.subplots(2,figsize=(12, 12))
-        plt.yticks(fontsize=fs)
-        plt.xticks(fontsize=fs)
+    return peak_snr, time_resolutions
 
 
-        #fig.suptitle()
-        ax[0].set_title('SNR of ' + my_key + 'KeV Band', fontsize=15)
-        ax[1].set_title('SNR of Search Window', fontsize=15)
+def outcatalog(outcatalog_file, swift_id, chime_id, timescale, peak_snr):
 
-        ax[0].set_xlabel('Time (s)', fontsize=fs)
-        ax[0].set_ylabel('SNR', fontsize=fs)
-        ax[0].plot(time - time[0],snr_arr)
+    with open(str(outcatalog_file), 'a') as file:
+        # this doesn't delete and remake it every time I run it
+        # hmm
 
-        ax[1].set_xlabel('Time (s)', fontsize=fs)
-        ax[1].set_ylabel('SNR', fontsize=fs)
-        ax[1].plot((time - time[0])[start_i:stop_i],(snr_arr)[start_i:stop_i])
 
-        plt.savefig(outdir +'SNR_' + my_key + 'lc.pdf',bbox_inches='tight')
-    #    plt.show()
-        plt.close()
+    # Make a list of strings
+        arr = [swift_id, chime_id, str(timescale), str(peak_snr)]
 
+    # Using the writelines() function, write all the sentences of the array to the file.
+        file.writelines(arr)
     return
-
-
-
-
-
 
 
 def main():
@@ -693,8 +730,11 @@ def main():
     incatalog = 'frb_test_cat_jan_2023.csv'
     time_window = 3
     swift_ids, trig_time, chime_ids = read_in_catalog(incatalog)
+    outcatalog_file = 'test_outcatalog.txt'
 
-    swift_ids = swift_ids[0:30]
+    # delete outcatalog
+
+    swift_ids = swift_ids
 
     # for each swift_id we make an outidr, and download the data
     for i in range(len(swift_ids)):
@@ -703,34 +743,51 @@ def main():
          make_outdir(outdir + '/' + swift_ids[i])
 
     # download data
-    get_swift_bat_data(swift_ids, datadir, overwrite=False)
+    all_downloaded  = True
+    while all_downloaded is True:
+        try:
+            get_swift_bat_data(swift_ids, datadir, overwrite=False)
+            all_downloaded = False
+        except:
+            all_downlaoded = True
 
 
-    print(len(swift_ids))
-    outcatalog_dict = {}
+
     for i in range(len(swift_ids)):
-        print(i, swift_ids[i])
 
         try:
             move_ess_heasoft_files(swift_ids[i], evt_file, outdir, datadir,
                                     stdout=None, stderr = None)
 
+            cc = Clock()
+                #datetime(2016,12,31,23,59,59)
+            cc = Clock(swifttime=str(trig_time[i]))
+            swift_time = cc.met
+                #print(swift_time)
+
+            my_trig_time = swift_time
+
             analysis_result = lc_analysis(swift_ids[i],
-                    evt_file, trig_time[i], time_window,  energy_bans, outdir)
+                evt_file, my_trig_time, time_window,  energy_bans, outdir)
 
             lc_analysis_dict, rate_snr_dict, time,energy = analysis_result
 
             my_outdir = outdir + '/' + str(swift_ids[i] + '/')
 
-            lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, trig_time[i],
-                        energy_bans, time_window, my_outdir )
-            #outcatalog_dict{str(swift_id[i])} = 
+            peak_snr, time_resolution = lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, my_trig_time,
+                        energy_bans, time_window, my_outdir, chime_ids[i], swift_ids[i])
+
+            # write outcatalog
+
+            outcatalog(outcatalog_file, swift_ids[i], chime_ids[i], time_resolution, peak_snr)
+
+            if peak_snr > 12:
+                print('SNR > 12!')
 
 
 
         except:
-            print('failed lc analysis')
-            #
+           print('failed lc analysis')
 
 
 if __name__ == '__main__':

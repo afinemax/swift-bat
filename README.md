@@ -1,9 +1,8 @@
 # Swift-BAT
 
-Swift-BAT is a repository containing the analysis pipeline for searching and placing fluence limits on associated $\gamma$-ray emission from the Canadian Hydrogen Intensity Mapping Experiment/Fast Radio Burst (CHIME/FRB) telescope. 
+Swift-BAT is a repository containing the analysis pipeline for searching and placing fluence limits on associated $\gamma$-ray emission from CHIME/FRBs. 
 
-
-If the corresponding SWIFT/BAT data does not exist locally, the pipeline will automatically download it.
+If the corresponding SWIFT/BAT data does not exist locally, the pipeline will automatically download it. (Key flag argument).
 
 The pipeline uses a boxcar search convolution over user-set time scales and energy bands around a user-set search window (centered on the CHIME trigger time). To search for FRBs. 
 

@@ -1627,8 +1627,10 @@ def main():
                         help="Plus and minus this value to search around the trigger")
     parser.add_argument("-r", dest="outcatalog_file", type=str, default='test_outcatalog_batcelldetect_1.2.json',
                         help="name of outputed results catalog.")
-    parser.add_argument("-l", dest="download_data", type=bool, default='False',
-                        help="If True downloads swift/bat data, if false does not")
+    #parser.add_argument("-l", dest="download_data", type=bool, default='False',
+    #                    help="If True downloads swift/bat data, if false does not")
+    parser.add_argument('--download_data', action='store_true', help='if set, will download swift/bat data if not available locally')
+
     args = parser.parse_args()
 
 
@@ -1641,6 +1643,7 @@ def main():
     outcatalog_file = args.outcatalog_file
     download_data = args.download_data
 
+
     swift_ids, trig_time, chime_ids, ra, dec = read_in_catalog(incatalog)
 
     # rewrite outcatalog so it is empty
@@ -1649,7 +1652,6 @@ def main():
 
     # make outdir
     make_outdir(outdir)
-    download_data = False
 
     if download_data == True:
         while  download_data is True:

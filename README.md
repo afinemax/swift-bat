@@ -57,6 +57,23 @@ A basic usage is
 
 This pipeline was developed by **Maxwell A. Fine** as part of AST425 (Undergraduate Thesis Class) at the University of Toronto. I was co-supervised by Ziggy Pleunis and Paul Scholz, as well as Professor Bryan Gaensler. Aaron Tohuvavohu was instrumental in understanding HEASoft and working with BAT data. We acknowledge the use of the CHIME/FRB and SWIFT/BAT data in this analysis.
 
+## Known Bugs/Issues
+
+- SWIFT API sometimes bugs out, this is protected for the downloading data but not for converting into MET/ SWIFT time
+- pipeline does not work for all cases, known failures:
+    - wrong type of bat .evt file
+    - multiple SWIFT dumps using the same ID
+    - some issue in the boxcar search for targets
+    - failure to generate .RSP file or taret is out of frame of the sky image
+   
+
+## Next Steps
+- investigate and correct pipeline failures
+- triple check that the events should be the background subtracted events from the sky image, and background is the noise image for the KBN method. (As opposed to using non-background subtracted events for the events in the sky image).
+- add argparse arguments for XSPEC settings, and confidence level for KBN method
+- Try Source Stacking
+
+
 # Contact
 
 If you have any questions or feedback, please contact **Maxwell Fine**:

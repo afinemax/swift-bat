@@ -9,6 +9,8 @@ The pipeline uses a boxcar search convolution over user-set time scales and ener
 
 To produce fluence limits. The analysis pipeline produces a noise image, and a background subtracted count image for the search window. It then using the KBN method in astropy to determine a countlimit at 95%. It generates a SWIFT/BAT RSP file, and fits using XSPEC.
 
+For more information see the SWIFT_CHIME_report.pdf in the repo.
+
 ## Outputs
 
 The pipeline produces two main outputs:

@@ -50,12 +50,11 @@ In addition, Swift-BAT requires the following software package:
 
 To use Swift-BAT, you can clone the repository and run the pipeline on your local machine. Before running the pipeline, make sure you have installed the required Python and software packages listed above.
 
-To run the pipeline, simply execute the `swift-bat.py` script with the appropriate command-line arguments. An examples are incatalog file is in the main directory.
+To run the pipeline, simply execute the `swift-bat.py` script with the appropriate command-line arguments. 
 
 ## Acknowledgments
 
-This pipeline was developed by **Maxwell A. Fine** as part of AST425 (Undergraduate Thesis Class) at the University of Toronto. I was co-supervised by Ziggy Pleunis and Paul Scholz, as well as Professor Bryan Gaensler. Aaron Tohuvavohu was instrumental in understanding HEASoft and working with BAT data. We acknowledge the use of the CHIME/FRB and SWIFT/BAT data in this analysis.
-
+This pipeline was developed by **Maxwell A. Fine** as part of AST425 (Undergraduate Thesis Class) at the University of Toronto. I was co-supervised by Ziggy Pleunis and Paul Scholz, as well as Professor Bryan Gaensler. Aaron Tohuvavohu was instrumental in understanding HEASoft and working with BAT data.
 ## Known Bugs/Issues
 
 - SWIFT API sometimes bugs out, this is protected for the downloading data but not for converting into MET/ SWIFT time

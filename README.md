@@ -39,11 +39,11 @@ Swift-BAT requires the following Python packages:
 - swifttools
 - subprocess
 - tqdm
+- xspec
 
-In addition, Swift-BAT requires the following software packages:
+In addition, Swift-BAT requires the following software package:
 
 - HEASoft
-- Xspec
 
 ## Getting Started
 
@@ -55,7 +55,7 @@ A basic usage is
 
 ## Acknowledgments
 
-This pipeline was developed by **Maxwell A. Fine** as part of AST425 (Undergraduate Thesis Class) at the University of Toronto. I was co-supervised by Ziggy and Paul, as well as Professor Bryan Gaensler. Aaron Tohuvavohu was instrumental in understanding HEASoft and working with BAT data. We acknowledge the use of the CHIME/FRB and SWIFT/BAT data in this analysis.
+This pipeline was developed by **Maxwell A. Fine** as part of AST425 (Undergraduate Thesis Class) at the University of Toronto. I was co-supervised by Ziggy Pleunis and Paul Scholz, as well as Professor Bryan Gaensler. Aaron Tohuvavohu was instrumental in understanding HEASoft and working with BAT data. We acknowledge the use of the CHIME/FRB and SWIFT/BAT data in this analysis.
 
 # Contact
 

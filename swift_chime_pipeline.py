@@ -1613,7 +1613,7 @@ def main():
     # Parse the command line options
     parser = argparse.ArgumentParser(description=descStr,epilog=epilog_text,
                                  formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument("-i", dest="incatalog", default='frb_test_cat_feb_2023.csv', nargs=1,
+    parser.add_argument("-i", dest="incatalog", nargs=1,
                         help="Incatalog file to read in. Formated as swift_id, trig_time, chime,id" )
     parser.add_argument("-e", dest="energy_bans",
                         default ='0-15,15-25,25-50,50-100,100-150,200-250,250-350',
@@ -1634,6 +1634,8 @@ def main():
 
     args = parser.parse_args()
 
+
+    #incatalog = args.incatalog
 
     incatalog = args.incatalog[0]
     energy_bans = args.energy_bans

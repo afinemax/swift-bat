@@ -334,6 +334,7 @@ def wrapper_fluence_limit(evt_file, swift_id, cwd, ra, dec, sky_image, w, bkg_im
 
 
 def read_in_catalog(incatalog):
+
     data = np.genfromtxt(str(incatalog), dtype=str, delimiter=',')
     swift_ids = data[:,0]
     trig_time = data[:,1]
@@ -1634,7 +1635,7 @@ def main():
     args = parser.parse_args()
 
 
-    incatalog = args.incatalog
+    incatalog = args.incatalog[0]
     energy_bans = args.energy_bans
     evt_file = args.evtfile
     datadir = args.swift_data_dir
@@ -1642,6 +1643,9 @@ def main():
     time_window = args.search_time_window
     outcatalog_file = args.outcatalog_file
     download_data = args.download_data
+
+    print(incatalog)
+    # why does incatalog not work!?!?!?!?
 
 
     swift_ids, trig_time, chime_ids, ra, dec = read_in_catalog(incatalog)

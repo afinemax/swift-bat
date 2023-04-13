@@ -1,1 +1,0 @@
-mkdir: cannot create directory ‘00095944003’: File exists

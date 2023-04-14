@@ -50,7 +50,7 @@ In addition, Swift-BAT requires the following software package:
 
 To use Swift-BAT, you can clone the repository and run the pipeline on your local machine. Before running the pipeline, make sure you have installed the required Python and software packages listed above.
 
-To run the pipeline, simply execute the `swift-bat.py` script with the appropriate command-line arguments. 
+To run the pipeline, simply execute the `swift-bat.py` script with the appropriate command-line arguments. The incatalog is expected as a .csv file formatted as "swift_id, trig_time, chime,id, ra , dec". With the ra, dec in degrees, and the trig_time being the CHIME trigger time. 
 
 ## Acknowledgments
 

@@ -408,6 +408,7 @@ def move_ess_heasoft_files(swift_id, evt_file, outdir, datadir,
 
     datadir = datadir + '/' + swift_id
     outdir = outdir + '/' + swift_id
+    make_outdir(outdir)
 
     sat_file = 'sw' + swift_id + 'sat.fits.gz'
 
@@ -423,11 +424,11 @@ def move_ess_heasoft_files(swift_id, evt_file, outdir, datadir,
 
     subprocess.run(['cp ' + cwd + '/' +str(swift_id) + '/bat/event/' + str(evt_file)
                 + ' ' + str(outdir) + '/' + str(evt_file) ],
-                    shell=True, cwd = cwd, stdout = stdout, stderr =stderr)
+                    shell=True, cwd = None, stdout = stdout, stderr =stderr)
 
     subprocess.run(['cp ' + cwd + '/' +str(swift_id) + '/auxil/' + str(sat_file)
-                + ' ' +  str(swift_id) + '/bat/event/' ],
-                    shell=True, cwd = cwd, stdout = stdout, stderr =stderr)
+                + ' ' + cwd + '/' + str(swift_id) + '/bat/event/' ],
+                    shell=True, cwd = None, stdout = stdout, stderr =stderr)
     return
 
 
@@ -1011,11 +1012,11 @@ def lc_analysis(swift_id, evt_file, trig_time, time_window,  energy_bans, outdir
 
     time = np.asarray(time)
 
+    if trig_time > time[-1] + time_window:
+        raise ValueError("Trigger time is after end of lightcurve")
+
     # identify energy bans
     bans = energy_bans.split(',')
-
-
-
 
     # calculate mean and noise
     totcounts_mean = np.mean(totcounts)
@@ -1065,6 +1066,7 @@ def lc_analysis(swift_id, evt_file, trig_time, time_window,  energy_bans, outdir
 
         # normalize by width of boxcar
 
+        print(window, totcounts_snr,start_i,stop_i)
         totcounts_convolve = signal.convolve(window, totcounts_snr[start_i: stop_i])
 
 
@@ -1697,7 +1699,7 @@ def main():
 
 
             sky_image, w, bkg_data = get_sky_image(swift_ids[i], chime_ids[i], ra[i], dec[i], outdir, datadir,
-                              np.min(old_time), my_trig_time, time_window, evt_file, ra_err=0, dec_err=0, clobber='True')
+                                np.min(old_time), my_trig_time, time_window, evt_file, ra_err=0, dec_err=0, clobber='True')
 
             #sky_image += bkg_data
             peak_snr, time_resolution, out_time_res, out_bans, out_snr = new_lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, my_trig_time,
@@ -1740,7 +1742,7 @@ def main():
 
             with open(outdir + '/' + outcatalog_file, 'w') as f:
                 json.dump(result_dict, f)
-                print('updated output file!')
+                print('Wrote results to output file!')
 
 
         except Exception as e:
@@ -1754,7 +1756,7 @@ def main():
 
             with open(outdir + '/' + outcatalog_file, 'w') as f:
                 json.dump(result_dict, f)
-                print('updated output file!')
+                print('Wrote error to output file!')
 
             continue
 

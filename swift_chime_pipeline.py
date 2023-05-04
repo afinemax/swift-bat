@@ -722,7 +722,7 @@ def get_sky_image(swift_id, chime_id, ra, dec, outdir, datadir,
 
     # produce paths to evt, hk, auxil
 
-    datadir = '../data_lc' + '/' + swift_id
+    datadir = datadir + '/' + swift_id
 
     # evt files
     #evt_file = datadir +'/bat/event/sw' + swift_id + evt_file
@@ -730,6 +730,7 @@ def get_sky_image(swift_id, chime_id, ra, dec, outdir, datadir,
     evt_file = 'sw' + swift_id + evt_file #00014920013bevshpo_uf.evt.gz'
     datadir = os.path.abspath(datadir )
     evt_dir = os.path.abspath(datadir + '/bat/event/')
+    print(evt_dir)
 
     #sw' +  swift_id + 'bdecb.hk.gz
    # obsid/auxil/swNNNNNNNNNNNsat.fits.gz
@@ -742,6 +743,7 @@ def get_sky_image(swift_id, chime_id, ra, dec, outdir, datadir,
 
     #qualilty map: obsid/bat/hk/swNNNNNNNNNNNbcbdq.hk.gz
     hk_file = os.path.abspath(datadir + '/bat/hk/sw' + swift_id + 'bdecb.hk.gz')
+    print(evt_file)
 
     f = open("output.txt", "w")
 
@@ -1066,7 +1068,6 @@ def lc_analysis(swift_id, evt_file, trig_time, time_window,  energy_bans, outdir
 
         # normalize by width of boxcar
 
-        print(window, totcounts_snr,start_i,stop_i)
         totcounts_convolve = signal.convolve(window, totcounts_snr[start_i: stop_i])
 
 
@@ -1691,20 +1692,16 @@ def main():
                                     evt_file, my_trig_time, time_window,  energy_bans, outdir)
 
             if analysis_result is None:
-                error_msg += 'lc_analysis result is None ' + ','
-
-                continue
+                raise ValueError("lc_analysis result is None")
 
             lc_analysis_dict, rate_snr_dict, time, energy, old_time = analysis_result
 
 
             sky_image, w, bkg_data = get_sky_image(swift_ids[i], chime_ids[i], ra[i], dec[i], outdir, datadir,
                                 np.min(old_time), my_trig_time, time_window, evt_file, ra_err=0, dec_err=0, clobber='True')
-
             #sky_image += bkg_data
             peak_snr, time_resolution, out_time_res, out_bans, out_snr = new_lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, my_trig_time,
                                                     energy_bans, time_window, outdir, chime_ids[i], swift_ids[i], old_time, sky_image, w, float(ra[i]), float(dec[i]))
-
             try:
                 cwd = datadir + '/' + str(swift_ids[i]) + '/bat/event' + '/'
                 fluence_lim, count_lim = wrapper_fluence_limit(evt_file, swift_ids[i], cwd, ra[i], dec[i], sky_image, w, bkg_data,
@@ -1717,10 +1714,8 @@ def main():
 
 
 
-
             peak_snr, time_resolution, out_time_res, out_bans, out_snr = new_lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, my_trig_time,
                                                 energy_bans, time_window, outdir, chime_ids[i], swift_ids[i], old_time, sky_image, w, float(ra[i]), float(dec[i]))
-
 
 
             data = {

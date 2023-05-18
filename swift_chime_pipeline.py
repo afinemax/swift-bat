@@ -756,8 +756,6 @@ def main():
     if download_data == True:
         try:
             get_swift_bat_data(swift_ids, datadir, overwrite=False)
-        except Exception as e:
-            error_msg += str(e) + ','
 
     result_dict = {}
     for i in tqdm(range(len(swift_ids)),leave=False, desc='searching ' + str(len(swift_ids)) +' Targets'):

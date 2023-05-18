@@ -727,8 +727,6 @@ def main():
     parser.add_argument('--download_data', action='store_true', help='if set, will download swift/bat data if not available locally')
     parser.add_argument('--model_strs', nargs='+', default=default_model_strs, help='List of model strings')
     parser.add_argument('--model_pars', nargs='+', default=default_model_pars, help='List of model parameters')
-
-    
     args = parser.parse_args()
 
     # args 
@@ -756,12 +754,10 @@ def main():
 
     # download swift/bat data
     if download_data == True:
-        while  download_data is True:
-            try:
-                get_swift_bat_data(swift_ids, datadir, overwrite=False)
-                download_data = False
-            except:
-                 download_data = True
+        try:
+            get_swift_bat_data(swift_ids, datadir, overwrite=False)
+        except Exception as e:
+            error_msg += str(e) + ','
 
     result_dict = {}
     for i in tqdm(range(len(swift_ids)),leave=False, desc='searching ' + str(len(swift_ids)) +' Targets'):

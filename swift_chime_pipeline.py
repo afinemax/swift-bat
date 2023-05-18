@@ -140,13 +140,15 @@ def heasoft_rsp(evt_file, swift_id, cwd, ra, dec, stdout=None, stderr=None,
                    stderr=stderr, cwd=cwd , shell=True,)
     return
 # functions
-xspec.XspecSettings.chatter = 0
 
-def fit_spectrum(countlim_at_burst,cwd):
+
+def fit_spectrum(countlim_at_burst,cwd, model_strs, model_pars):
     fluence_limits = []
+
+    xspec.XspecSettings.chatter = 0 
     # make inputs!
-    model_strs = ["tbabs(bb)","tbabs(bb)","tbabs(cutoffpl)","tbabs(cutoffpl)","tbabs(po)","tbabs(po)"]
-    model_pars = [[0.1,10.,1.],[10.0,10.,1.],[0.1,0.5,500.,1.],[10.0,0.5,500.,1.],[0.1,2.0,1.],[10.,2.0,1.]]
+   # model_strs = ["tbabs(bb)","tbabs(bb)","tbabs(cutoffpl)","tbabs(cutoffpl)","tbabs(po)","tbabs(po)"]
+   # model_pars = [[0.1,10.,1.],[10.0,10.,1.],[0.1,0.5,500.,1.],[10.0,0.5,500.,1.],[0.1,2.0,1.],[10.,2.0,1.]]
     mod_fluence_lims,mod_avg_e, plot_vals = [],[],[]
     for i,(model_str,model_par) in enumerate(zip(model_strs,model_pars)):
         model = xspec.Model(model_str)
@@ -168,9 +170,9 @@ def get_fluence_limit(countlim_at_burst, cwd,model):
         F_CHAN = hdul[1].data['F_CHAN']
         N_CHAN = hdul[1].data['N_CHAN']
         MATRIX = hdul[1].data['MATRIX']
-    energy_lims = np.linspace(15,150,1000) #kev
-    xspec.AllModels.setEnergies('15 150 1000') # limits of swift sky images
-    energies = ENERG_LO[(ENERG_LO > energy_lims[0] ) & (ENERG_LO  < energy_lims[-1])]
+    energy_lims = np.linspace(15,150,1000) #Kev
+    xspec.AllModels.setEnergies('15 150 1000') #Kev, limits of swift sky images
+    energies = ENERG_LO[(ENERG_LO > energy_lims[0]) & (ENERG_LO  < energy_lims[-1])]
     mod_energies = np.array(model.energies(0),dtype='float')[:-1]
     weighted_E = np.sum(mod_energies* model.values(0)) / np.sum(model.values(0)) # model weighted photon E
     resp = 1 # dummy variable, RSPs have allraedy been normalises to their respective area
@@ -181,7 +183,7 @@ def get_fluence_limit(countlim_at_burst, cwd,model):
     return fluence_lim,  weighted_E
 
 
-def wrapper_fluence_limit(evt_file, swift_id, cwd, ra, dec, sky_image, w, bkg_image,
+def wrapper_fluence_limit(evt_file, swift_id, cwd, ra, dec, sky_image, w, bkg_image,model_strs, model_pars,
                         stdout=None, stderr=None, clobber=True):
     #'makes .rsp file', calculates fluence limit
     # cwd is the evt dir
@@ -218,7 +220,7 @@ def wrapper_fluence_limit(evt_file, swift_id, cwd, ra, dec, sky_image, w, bkg_im
     if upper_limit <=0:
         upper_limit =0
     countlim_at_burst = upper_limit
-    fluence_limit, weighted_e = fit_spectrum(countlim_at_burst,cwd,)
+    fluence_limit, weighted_e = fit_spectrum(countlim_at_burst,cwd,model_strs, model_pars)
     # fluence limit is a list of arrays!
     fluence_lim_list = [arr[0] for arr in fluence_limit]
 
@@ -698,6 +700,12 @@ def main():
     descStr = """Inputs yada yada wip"""
 
     epilog_text=""" outputs yada yada"""
+
+    # Default values
+    default_model_strs = ["tbabs(bb)", "tbabs(bb)", "tbabs(cutoffpl)", "tbabs(cutoffpl)", "tbabs(po)", "tbabs(po)"]
+    default_model_pars = [[0.1, 10., 1.], [10.0, 10., 1.], [0.1, 0.5, 500., 1.], [10.0, 0.5, 500., 1.], [0.1, 2.0, 1.], [10., 2.0, 1.]]
+
+
     parser = argparse.ArgumentParser(description=descStr,epilog=epilog_text,
                                  formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("-i", dest="incatalog", nargs=1,
@@ -715,8 +723,17 @@ def main():
                         help="Plus and minus this value to search around the trigger")
     parser.add_argument("-r", dest="outcatalog_file", type=str, default='test_outcatalog_batcelldetect_1.2.json',
                         help="name of outputed results catalog.")
+    parser.add_argument('-ms', dest='model_strs for xpsec', default='')
     parser.add_argument('--download_data', action='store_true', help='if set, will download swift/bat data if not available locally')
+    parser.add_argument('--model_strs', nargs='+', default=default_model_strs, help='List of model strings')
+    parser.add_argument('--model_pars', nargs='+', default=default_model_pars, help='List of model parameters')
+
+    
     args = parser.parse_args()
+
+    # args 
+    model_strs = args.model_strs
+    model_pars = args.model_pars
     incatalog = args.incatalog[0]
     energy_bans = args.energy_bans
     evt_file = args.evtfile
@@ -775,7 +792,7 @@ def main():
                                                     energy_bans, time_window, outdir, chime_ids[i], swift_ids[i], old_time, sky_image, w, float(ra[i]), float(dec[i]))
             try:
                 cwd = datadir + '/' + str(swift_ids[i]) + '/bat/event' + '/'
-                fluence_lim, count_lim = wrapper_fluence_limit(evt_file, swift_ids[i], cwd, ra[i], dec[i], sky_image, w, bkg_data,
+                fluence_lim, count_lim = wrapper_fluence_limit(evt_file, swift_ids[i], cwd, ra[i], dec[i], sky_image, w, bkg_data, model_strs, model_pars,
                                             stdout=None, stderr=None, clobber=True)
                 count_lim = count_lim[0].astype('float')
             except Exception as e:

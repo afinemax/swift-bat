@@ -690,6 +690,80 @@ def new_lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, trig_time,
     return peak_snr, time_resolution, out_time_res, out_bans, out_snr
 
 
+def search_frb_target(swift_id, evt_file, outdir, datadir, trig_time, time_window, energy_bans,
+                      ra, dec, result_dict, model_strs, model_pars, chime_id, outcatalog_file):
+    
+    'searchs for peak in SNR around trigger time, and then does fluence limit calculation'
+    error_msg = ''
+    try:
+        move_ess_heasoft_files(swift_id, evt_file, outdir, datadir,
+                                                            stdout=None, stderr = None)
+        # convert to SWIFT MET time
+        cc = Clock()
+        cc = Clock(swifttime=str(trig_time))
+        swift_time = cc.met
+        my_trig_time = swift_time
+
+        # conduct SNR search
+        analysis_result = lc_analysis(swift_id,
+                                evt_file, my_trig_time, time_window,  energy_bans, outdir)
+            
+        if analysis_result is None:
+           raise ValueError("lc_analysis result is None")
+
+        lc_analysis_dict, rate_snr_dict, time, energy, old_time = analysis_result
+
+        # produce images and fluence limits 
+        sky_image, w, bkg_data = get_sky_image(swift_id, chime_id, ra, dec, outdir, datadir,
+                                               np.min(old_time), my_trig_time, time_window, evt_file,
+                                               ra_err=0, dec_err=0, clobber='True')
+         
+        peak_snr, time_resolution, out_time_res, out_bans, out_snr = new_lc_plotting(lc_analysis_dict, rate_snr_dict,
+                                                                                     time, energy, my_trig_time, energy_bans,
+                                                                                     time_window, outdir, chime_id, swift_id,
+                                                                                     old_time, sky_image, w, float(ra), float(dec))
+        try:
+            cwd = datadir + '/' + str(swift_id) + '/bat/event' + '/'
+            fluence_lim, count_lim = wrapper_fluence_limit(evt_file, swift_id, cwd, ra, dec, sky_image, w, bkg_data, model_strs, model_pars,
+                                            stdout=None, stderr=None, clobber=True)
+            count_lim = count_lim[0].astype('float')
+        except Exception as e:
+            error_msg += str(e) + ','
+            fluence_lim = None
+            count_lim =  None
+
+        data = {
+            'swift_id': swift_id,
+            'chime_id': chime_id,
+            'timescale': time_resolution,
+            'peak_snr': peak_snr,
+            'out_time_res': out_time_res,
+            'out_bans': out_bans,
+            'out_snr': out_snr,
+            'fluence_lim': fluence_lim,
+            'count_lim': count_lim,
+            'error_msgs': error_msg}
+
+        result_dict[str(swift_id)] = data
+        with open(outdir + '/' + outcatalog_file, 'w') as f:
+            json.dump(result_dict, f)
+            print('Wrote results to output file!')
+            
+    except Exception as e:
+        error_msg += str(e) + ','
+
+        data = {
+        'swift_id': swift_id,
+        'error_msgs': error_msg}
+
+        result_dict[str(swift_id)] = data
+
+        with open(outdir + '/' + outcatalog_file, 'w') as f:
+            json.dump(result_dict, f)
+            print('Wrote error to output file!')
+
+
+
 
 def main():
     """
@@ -749,89 +823,24 @@ def main():
     with open(str(outdir + '/' + outcatalog_file), 'w') as file:
             file.writelines('')
 
-    # make outdir
-    make_outdir(outdir)
-
     # download swift/bat data
     if download_data == True:
         try:
             get_swift_bat_data(swift_ids, datadir, overwrite=False)
+        except:
+            pass
 
+    # make outdir
+    make_outdir(outdir)
+
+    # initalize results
     result_dict = {}
-    for i in tqdm(range(len(swift_ids)),leave=False, desc='searching ' + str(len(swift_ids)) +' Targets'):
-        error_msg = ''
-        try:
-            move_ess_heasoft_files(swift_ids[i], evt_file, outdir, datadir,
-                                                            stdout=None, stderr = None)
-            # convert to SWIFT MET time
-            cc = Clock()
-            cc = Clock(swifttime=str(trig_time[i]))
-            swift_time = cc.met
-            my_trig_time = swift_time
 
-            # conduct SNR search
-            analysis_result = lc_analysis(swift_ids[i],
-                                    evt_file, my_trig_time, time_window,  energy_bans, outdir)
-            
-            if analysis_result is None:
-                raise ValueError("lc_analysis result is None")
+    # run search
+    for i in tqdm(range(len(swift_ids)),leave=False, desc='Searching ' + str(len(swift_ids)) +' Targets'):
+        search_frb_target(swift_ids[i], evt_file, outdir, datadir, trig_time[i], time_window, energy_bans,
+                      ra[i], dec[i], result_dict, model_strs, model_pars, chime_ids[i], outcatalog_file)
 
-            lc_analysis_dict, rate_snr_dict, time, energy, old_time = analysis_result
-
-            # produce images and fluence limits 
-            sky_image, w, bkg_data = get_sky_image(swift_ids[i], chime_ids[i], ra[i], dec[i], outdir, datadir,
-                                np.min(old_time), my_trig_time, time_window, evt_file, ra_err=0, dec_err=0, clobber='True')
-         
-            peak_snr, time_resolution, out_time_res, out_bans, out_snr = new_lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, my_trig_time,
-                                                    energy_bans, time_window, outdir, chime_ids[i], swift_ids[i], old_time, sky_image, w, float(ra[i]), float(dec[i]))
-            try:
-                cwd = datadir + '/' + str(swift_ids[i]) + '/bat/event' + '/'
-                fluence_lim, count_lim = wrapper_fluence_limit(evt_file, swift_ids[i], cwd, ra[i], dec[i], sky_image, w, bkg_data, model_strs, model_pars,
-                                            stdout=None, stderr=None, clobber=True)
-                count_lim = count_lim[0].astype('float')
-            except Exception as e:
-                error_msg += str(e) + ','
-                fluence_lim = None
-                count_lim =  None
-
-
-
-            peak_snr, time_resolution, out_time_res, out_bans, out_snr = new_lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, my_trig_time,
-                                                energy_bans, time_window, outdir, chime_ids[i], swift_ids[i], old_time, sky_image, w, float(ra[i]), float(dec[i]))
-
-
-            data = {
-                'swift_id': swift_ids[i],
-                'chime_id': chime_ids[i],
-                'timescale': time_resolution,
-                'peak_snr': peak_snr,
-                'out_time_res': out_time_res,
-                'out_bans': out_bans,
-                'out_snr': out_snr,
-                'fluence_lim': fluence_lim,
-                'count_lim': count_lim,
-                'error_msgs': error_msg}
-
-            result_dict[str(swift_ids[i])] = data
-            with open(outdir + '/' + outcatalog_file, 'w') as f:
-                json.dump(result_dict, f)
-                print('Wrote results to output file!')
-
-
-        except Exception as e:
-            error_msg += str(e) + ','
-
-            data = {
-            'swift_id': swift_ids[i],
-            'error_msgs': error_msg}
-
-            result_dict[str(swift_ids[i])] = data
-
-            with open(outdir + '/' + outcatalog_file, 'w') as f:
-                json.dump(result_dict, f)
-                print('Wrote error to output file!')
-
-            continue
 
 if __name__ == '__main__':
     main()

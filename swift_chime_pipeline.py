@@ -192,6 +192,10 @@ def wrapper_fluence_limit(evt_file, swift_id, cwd, ra, dec, sky_image, w, bkg_im
                     clobber = True)
     except Exception as e:
         error_msg += str(e) + ','
+        # Check if the debug mode is enabled
+        if debug:
+            # Raise the exception, crashing the program
+            raise e
     data = sky_image
     sky = SkyCoord(ra=ra, dec=dec, unit=u.degree)
     x, y = w.world_to_pixel(sky)
@@ -691,7 +695,7 @@ def new_lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, trig_time,
 
 
 def search_frb_target(swift_id, evt_file, outdir, datadir, trig_time, time_window, energy_bans,
-                      ra, dec, result_dict, model_strs, model_pars, chime_id, outcatalog_file):
+                      ra, dec, result_dict, model_strs, model_pars, chime_id, outcatalog_file, debug=False):
     
     'searchs for peak in SNR around trigger time, and then does fluence limit calculation'
     error_msg = ''
@@ -731,6 +735,10 @@ def search_frb_target(swift_id, evt_file, outdir, datadir, trig_time, time_windo
             error_msg += str(e) + ','
             fluence_lim = None
             count_lim =  None
+            # Check if the debug mode is enabled
+            if debug:
+            # Raise the exception, crashing the program
+                raise e
 
         data = {
             'swift_id': swift_id,
@@ -751,6 +759,10 @@ def search_frb_target(swift_id, evt_file, outdir, datadir, trig_time, time_windo
             
     except Exception as e:
         error_msg += str(e) + ','
+        # Check if the debug mode is enabled
+        if debug:
+        # Raise the exception, crashing the program
+            raise e
 
         data = {
         'swift_id': swift_id,
@@ -801,6 +813,7 @@ def main():
     parser.add_argument('--download_data', action='store_true', help='if set, will download swift/bat data if not available locally')
     parser.add_argument('--model_strs', nargs='+', default=default_model_strs, help='List of model strings')
     parser.add_argument('--model_pars', nargs='+', default=default_model_pars, help='List of model parameters')
+    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
     args = parser.parse_args()
 
     # args 
@@ -814,6 +827,7 @@ def main():
     time_window = args.search_time_window
     outcatalog_file = args.outcatalog_file
     download_data = args.download_data
+    debug = args.debug
 
 
     # read in catalog
@@ -828,6 +842,10 @@ def main():
         try:
             get_swift_bat_data(swift_ids, datadir, overwrite=False)
         except:
+            # Check if the debug mode is enabled
+            if debug:
+            # Raise the exception, crashing the program
+                raise e
             pass
 
     # make outdir
@@ -839,7 +857,7 @@ def main():
     # run search
     for i in tqdm(range(len(swift_ids)),leave=False, desc='Searching ' + str(len(swift_ids)) +' Targets'):
         search_frb_target(swift_ids[i], evt_file, outdir, datadir, trig_time[i], time_window, energy_bans,
-                      ra[i], dec[i], result_dict, model_strs, model_pars, chime_ids[i], outcatalog_file)
+                      ra[i], dec[i], result_dict, model_strs, model_pars, chime_ids[i], outcatalog_file, debug)
 
 
 if __name__ == '__main__':

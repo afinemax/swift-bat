@@ -104,6 +104,7 @@ def heasoft_rsp(evt_file, swift_id, cwd, ra, dec, stdout=None, stderr=None,
     # make aux file
     # need the 'aux' file made by batmaskwtevt
 
+    print(evt_file)
     subprocess.run(['cp ' + str(evt_file) + ' evt_file'],
                   stdout=stdout , stderr=stderr, cwd=cwd , shell=True,)
     subprocess.run([' gzip -d -f ' + str(evt_file) ],
@@ -136,7 +137,7 @@ def heasoft_rsp(evt_file, swift_id, cwd, ra, dec, stdout=None, stderr=None,
     subprocess.run(['batupdatephakw frb.pha auxfile clobber = True'],stdout=stdout ,
                    stderr=stderr, cwd=cwd , shell=True,)
     # finally make the matrix!
-    subprocess.run(['batdrmgen frb.pha frb.rsp clobber= True'],stdout=stdout ,
+    subprocess.run(['batdrmgen frb.pha frb.rsp hkfile=NONE clobber= True'],stdout=stdout ,
                    stderr=stderr, cwd=cwd , shell=True,)
     return
 # functions
@@ -188,7 +189,7 @@ def wrapper_fluence_limit(evt_file, swift_id, cwd, ra, dec, sky_image, w, bkg_im
     #'makes .rsp file', calculates fluence limit
     # cwd is the evt dir
     try:
-        heasoft_rsp(evt_file, swift_id, cwd, ra, dec, stdout=None, stderr=None,
+        heasoft_rsp(evt_file, swift_id, cwd, ra, dec, stdout=stdout, stderr=stderr,
                     clobber = True)
     except Exception as e:
         error_msg += str(e) + ','
@@ -329,6 +330,7 @@ def get_sky_image(swift_id, chime_id, ra, dec, outdir, datadir,
     stdout = f
     # produce  dpi mask, and mask
     subprocess.run(['batbinevt ' + str(evt_file) + ' weighted=no outunits=counts'
+                    + ' timedel=0.0 timebinalg=u'
                     + ' outtype=dpi energy=- clobber=' + str(clobber)
                     + ' outfile= frb.dpi.mask'], cwd = evt_dir, shell=True,
                     stdout = stdout, stderr =stderr)

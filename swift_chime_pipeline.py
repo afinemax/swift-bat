@@ -200,14 +200,9 @@ def wrapper_fluence_limit(evt_file, swift_id, cwd, ra, dec, sky_image, w, bkg_im
     sky = SkyCoord(ra=ra, dec=dec, unit=u.degree)
     x, y = w.world_to_pixel(sky)
     # check for valid values of x, y in pixel coords
-    if np.isnan(x):
-        return None, None
-    if np.isnan(y):
-        return None, None
-    if x < 0:
-        return None, None
-    if y< 0 :
-        return None, None
+    if np.isnan(x) or np.isnan(y) or x < 0 or y < 0 or x > data.shape[0] or y > data.shape[1]:
+        raise ValueError(f"Pixel coordinates for RA, Dec: {ra}, {dec} are not on the BAT image.")
+    
     evt_counts = data[int(x),int(y)] # this could still be <0
     bkg_counts = bkg_image[int(x),int(y)]
     # check for valid counts
@@ -404,7 +399,7 @@ def get_lightcurve(outdir, evt_file, time_resolution, energy_bans, lc_file,
         names = hdul[1].data.columns
 
     if np.ptp(time) > 250: # ignore GUANO dumps containing more then 250s of data
-         return None
+         raise ValueError('GUANO dump contains more then 250s of data')
     
     times_old = np.copy(time)
     if mask_cosmic_ray == True:
@@ -494,9 +489,6 @@ def lc_analysis(swift_id, evt_file, trig_time, time_window,  energy_bans, outdir
     outdir = outdir +'/' + swift_id
     lc_return = get_lightcurve(outdir,lc_file, time_resolution, energy_bans, lc_file)
 
-    if lc_return is None:
-        return None
-    
     time, totcounts, rate, old_time, energy  = lc_return
 
     time = np.asarray(time)
@@ -713,9 +705,6 @@ def search_frb_target(swift_id, evt_file, outdir, datadir, trig_time, time_windo
         analysis_result = lc_analysis(swift_id,
                                 evt_file, my_trig_time, time_window,  energy_bans, outdir)
             
-        if analysis_result is None:
-           raise ValueError("lc_analysis result is None")
-
         lc_analysis_dict, rate_snr_dict, time, energy, old_time = analysis_result
 
         # produce images and fluence limits 

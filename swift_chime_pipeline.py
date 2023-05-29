@@ -104,7 +104,6 @@ def heasoft_rsp(evt_file, swift_id, cwd, ra, dec, stdout=None, stderr=None,
     # make aux file
     # need the 'aux' file made by batmaskwtevt
 
-    print(evt_file)
     subprocess.run(['cp ' + str(evt_file) + ' evt_file'],
                   stdout=stdout , stderr=stderr, cwd=cwd , shell=True,)
     subprocess.run([' gzip -d -f ' + str(evt_file) ],
@@ -690,7 +689,7 @@ def new_lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, trig_time,
     fig.tight_layout()
     fig.subplots_adjust(top=0.88)
     fig.tight_layout()
-    plt.savefig(outdir + '/' + 'swift_id_'+ swift_id +'_chime_id_' + chime_id+'_ diagnostic.pdf', bbox_inches='tight')
+    plt.savefig(outdir + '/' + 'swift_id_'+ swift_id +'_chime_id_' + chime_id+'_diagnostic.pdf', bbox_inches='tight')
     plt.savefig('ast425_final_sky.png', bbox_inches='tight', dpi=300, transparent=True)
     plt.close()
     return peak_snr, time_resolution, out_time_res, out_bans, out_snr

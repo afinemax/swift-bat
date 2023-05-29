@@ -200,11 +200,12 @@ def wrapper_fluence_limit(evt_file, swift_id, cwd, ra, dec, sky_image, w, bkg_im
     sky = SkyCoord(ra=ra, dec=dec, unit=u.degree)
     x, y = w.world_to_pixel(sky)
     # check for valid values of x, y in pixel coords
-    if np.isnan(x) or np.isnan(y) or x < 0 or y < 0 or x > data.shape[0] or y > data.shape[1]:
+    if np.isnan(x) or np.isnan(y) or x < 0 or y < 0 or x > data.shape[1] or y > data.shape[0]:
         raise ValueError(f"Pixel coordinates for RA, Dec: {ra}, {dec} are not on the BAT image.")
     
-    evt_counts = data[int(x),int(y)] # this could still be <0
-    bkg_counts = bkg_image[int(x),int(y)]
+    evt_counts = data[int(y),int(x)] # image is indexed by y,x
+    bkg_counts = bkg_image[int(y),int(x)]
+
     # check for valid counts
     if evt_counts > 0:
         upper_limit = evt_counts + np.sqrt(bkg_counts) # 1 sigma limit

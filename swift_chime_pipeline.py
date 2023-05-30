@@ -206,6 +206,11 @@ def wrapper_fluence_limit(evt_file, swift_id, cwd, ra, dec, sky_image, w, bkg_im
     evt_counts = data[int(y),int(x)] # image is indexed by y,x
     bkg_counts = bkg_image[int(y),int(x)]
 
+    if np.isnan(evt_counts):
+        raise ValueError(f"BAT event image is NaN at pixel coordinates for RA, Dec: {ra}, {dec}.")
+    if np.isnan(bkg_counts):
+        raise ValueError(f"BAT bkg image is NaN at pixel coordinates for RA, Dec: {ra}, {dec}.")
+
     # check for valid counts
     if evt_counts > 0:
         upper_limit = evt_counts + np.sqrt(bkg_counts) # 1 sigma limit

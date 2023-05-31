@@ -545,9 +545,9 @@ def lc_analysis(swift_id, evt_file, trig_time, time_window,  energy_bans, outdir
     return lc_analysis_dict, rate_snr_dict, time, energy, old_time
 
 
-def expected_snr(n_samples):
+def expected_snr(n_samples,false_alarms=1):
 
-    snr = special.erfinv((-1/n_samples) + 1) * np.sqrt(2)
+    snr = special.erfinv((-false_alarms/n_samples) + 1) * np.sqrt(2)
 
     return np.abs(snr) # return postive value only
 
@@ -619,10 +619,17 @@ def new_lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, trig_time,
     timescales = np.logspace(-2,np.log10(2*6.3), 100)#1.8,1000)
     snr = np.zeros(len(timescales))
     time_window = 6
+
     n_samples = (2 * time_window )/ timescales
-    snr = expected_snr(n_samples)
-    ax3.plot(timescales, snr, ':', color='k', label='Expected Noise')
-    ax3.legend(fontsize=12, labelcolor='k',facecolor='white', ncol=2 )
+    for false_alarm, label in zip([1, 0.1, 0.01],["Expected Noise", None, None]):
+        ax3.plot(
+            timescales, 
+            expected_snr(n_samples,false_alarms=false_alarm), 
+            ':', 
+            color='k', 
+            label=label,
+            )
+    ax3.legend(fontsize=10, labelcolor='k',facecolor='white', ncol=1,bbox_to_anchor=(1.05, 1), loc='upper left')
 
     # light curves
     ax4 = fig.add_subplot(gs[0,2])

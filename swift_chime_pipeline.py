@@ -170,12 +170,22 @@ def get_fluence_limit(countlim_at_burst, cwd,model):
         F_CHAN = hdul[1].data['F_CHAN']
         N_CHAN = hdul[1].data['N_CHAN']
         MATRIX = hdul[1].data['MATRIX']
-    energy_lims = np.linspace(15,150,1000) #Kev
-    xspec.AllModels.setEnergies('15 150 1000') #Kev, limits of swift sky images
-    energies = ENERG_LO[(ENERG_LO > energy_lims[0]) & (ENERG_LO  < energy_lims[-1])]
+
+
+    energy_lims = (15,150) #Kev
+    energy_fn = "tmp_energies.txt"
+    energies = ENERG_LO[(ENERG_LO > energy_lims[0]) & (ENERG_LO  < energy_lims[1])]
+
+    f = open(energy_fn,"w")
+    for energy in energies:
+        f.write("%.3f\n" % energy)
+    f.close()
+
+    xspec.AllModels.setEnergies(energy_fn) #Kev, limits of swift sky images
     mod_energies = np.array(model.energies(0),dtype='float')[:-1]
     weighted_E = np.sum(mod_energies* model.values(0)) / np.sum(model.values(0)) # model weighted photon E
-    resp = 1 # dummy variable, RSPs have allraedy been normalises to their respective area
+    resp = np.sum(MATRIX,axis=1)*18000 # Ballparking by using 18000 as active Ndet, but should be summed properly over columns
+    resp = resp[(ENERG_LO > energy_lims[0]) & (ENERG_LO  < energy_lims[1])][:-1]
     avg_area = np.sum(resp*model.values(0)) / np.sum(model.values(0))
     KeV_in_erg = 1.60218e-9
     fluence_lim = countlim_at_burst / (avg_area / weighted_E / KeV_in_erg)

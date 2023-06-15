@@ -299,8 +299,8 @@ def move_ess_heasoft_files(swift_id, evt_file, outdir, datadir,
     return
 
 
-def get_swift_bat_data(swift_ids, datadir, overwrite=False):
-    '''Downloads Swift data corresponding to the swift_ids and places
+def get_swift_bat_data(swift_id, datadir, overwrite=False):
+    '''Downloads Swift data corresponding to the swift_id and places
         data files in datadir
 
         Parameters
@@ -314,15 +314,14 @@ def get_swift_bat_data(swift_ids, datadir, overwrite=False):
         overwrite: True / False
                    if true, overwrites swift data'''
 
-    for i in range(len(swift_ids)):
-        data = Data()
-        data.obsid = str(swift_ids[i]) # query data for these observations,
+    data = Data()
+    data.obsid = str(swift_id) # query data for these observations,
                                        # note id is a str
-        data.bat = True # fetch data for bat
+    data.bat = True # fetch data for bat
 
-        data.submit() # checks for existence of data
-        data.clobber = overwrite 
-        data.download(outdir=datadir)
+    data.submit() # checks for existence of data
+    data.clobber = overwrite 
+    data.download(outdir=datadir)
 
 def get_sky_image(swift_id, chime_id, ra, dec, outdir, datadir,
                   time_0, trig_time, time_window, evt_file, ra_err=0, dec_err=0, clobber='True'):
@@ -711,10 +710,21 @@ def new_lc_plotting(lc_analysis_dict, rate_snr_dict, time, energy, trig_time,
 
 
 def search_frb_target(swift_id, evt_file, outdir, datadir, trig_time, time_window, energy_bans,
-                      ra, dec, result_dict, model_strs, model_pars, chime_id, outcatalog_file, debug=False):
+                      ra, dec, result_dict, model_strs, model_pars, chime_id, outcatalog_file, download_data, debug=False):
     
     'searchs for peak in SNR around trigger time, and then does fluence limit calculation'
     error_msg = ''
+    # download swift/bat data
+    if download_data == True:
+        try:
+            get_swift_bat_data(swift_id, datadir, overwrite=False)
+        except:
+            # Check if the debug mode is enabled
+            if debug:
+            # Raise the exception, crashing the program
+                raise e
+            pass
+
     try:
         move_ess_heasoft_files(swift_id, evt_file, outdir, datadir,
                                                             stdout=None, stderr = None)
@@ -842,7 +852,6 @@ def main():
     download_data = args.download_data
     debug = args.debug
 
-
     # read in catalog
     swift_ids, trig_time, chime_ids, ra, dec = read_in_catalog(incatalog)
 
@@ -850,16 +859,6 @@ def main():
     with open(str(outdir + '/' + outcatalog_file), 'w') as file:
             file.writelines('')
 
-    # download swift/bat data
-    if download_data == True:
-        try:
-            get_swift_bat_data(swift_ids, datadir, overwrite=False)
-        except:
-            # Check if the debug mode is enabled
-            if debug:
-            # Raise the exception, crashing the program
-                raise e
-            pass
 
     # make outdir
     make_outdir(outdir)
@@ -870,7 +869,7 @@ def main():
     # run search
     for i in tqdm(range(len(swift_ids)),leave=False, desc='Searching ' + str(len(swift_ids)) +' Targets'):
         search_frb_target(swift_ids[i], evt_file, outdir, datadir, trig_time[i], time_window, energy_bans,
-                      ra[i], dec[i], result_dict, model_strs, model_pars, chime_ids[i], outcatalog_file, debug)
+                      ra[i], dec[i], result_dict, model_strs, model_pars, chime_ids[i], outcatalog_file, debug,download_data)
 
 
 if __name__ == '__main__':

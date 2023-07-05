@@ -324,7 +324,8 @@ def get_swift_bat_data(swift_id, datadir, overwrite=False):
     data.download(outdir=datadir)
 
 def get_sky_image(swift_id, chime_id, ra, dec, outdir, datadir,
-                  time_0, trig_time, time_window, evt_file, ra_err=0, dec_err=0, clobber='True'):
+                  time_0, trig_time, time_window, evt_file, ra_err=0, dec_err=0,
+                  clobber='True', image_name='evt.frb.sky.img', bkg_image_name = 'bkg.frb.sky.img'):
     '''Computes event dpi, and background dpi, produces sky image for target'''
 
     datadir = datadir + '/' + swift_id
@@ -367,11 +368,11 @@ def get_sky_image(swift_id, chime_id, ra, dec, outdir, datadir,
                     + ' tstart=' + str(tstart) + ' tstop=' + str(tstop)],
                        stdout=f , stderr=f, cwd=evt_dir , shell=True,  )
     # make sky image
-    subprocess.run(['batfftimage infile=evt.frb.dpi outfile=evt.frb.sky.img attitude=' + str(sat_file)
+    subprocess.run(['batfftimage infile=evt.frb.dpi outfile= ' + image_name +' attitude=' + str(sat_file)
                     + ' bkgfile = bkg.frb.dpi detmask=frb.mask clobber=YES' ],
                        stdout=f , stderr=f, cwd=evt_dir , shell=True,  )
     # make noise image
-    subprocess.run(['batcelldetect infile=evt.frb.sky.img outfile=batcelldetect.out snrthresh=6 bkgvarmap=bkg.frb.sky.img clobber=YES' ],
+    subprocess.run(['batcelldetect infile=evt.frb.sky.img outfile=batcelldetect.out snrthresh=6 bkgvarmap=' + bkg_image_name +' clobber=YES' ],
                        stdout=f , stderr=f, cwd=evt_dir , shell=True,  )
     
     # subprocess.run(['batfftimage infile=evt.frb.dpi outfile=evt.frb.sky.img attitude=' + str(sat_file)
@@ -534,6 +535,7 @@ def lc_analysis(swift_id, evt_file, trig_time, time_window,  energy_bans, outdir
         noise_i = np.std(rate[:,i])
         rate_snr_dict[bans[i]] = (rate[:,i] - mean_i ) / noise_i
         lc_analysis_dict['bans_dict'][bans[i]] = {}
+        lc_analysis_dict['totcounts_dict_peak_time'] ={}
     time_res = np.logspace(-2, np.log10(2*time_window), 13)
     for i in tqdm(range(len(time_res)),leave=False,
                   desc='searching ' + str(len(time_res)) +' time windows'): # for each time resoluton
@@ -542,9 +544,14 @@ def lc_analysis(swift_id, evt_file, trig_time, time_window,  energy_bans, outdir
         window = np.ones(window_len,dtype='float32')/ np.sqrt(window_len) # normalize by width of boxcar
         if len(window) == 0: # set smallest boxcar to 1, if window len is less then 1
             window = [1]
-        totcounts_convolve = signal.convolve(window, totcounts_snr[start_i: stop_i])
+        totcounts_convolve = signal.convolve(window, totcounts_snr[start_i: stop_i],mode='same')
         totcounts_snr_max = np.max(totcounts_convolve) # peak from the boxcar search
         lc_analysis_dict['totcounts_dict'][time_res[i]] = totcounts_snr_max
+        # locate peak in time space
+        peak_index = np.argmax(totcounts_convolve)
+        peak_time = time[start_i:stop_i][peak_index]
+        lc_analysis_dict['totcounts_dict_peak_time'][time_res[i]] = peak_time
+
         # now for each rate space SNR
         for j in range(len(bans)): # for each energy band
             bans_convolve_j = signal.convolve(window, rate_snr_dict[bans[j]][start_i: stop_i])
@@ -718,7 +725,7 @@ def search_frb_target(swift_id, evt_file, outdir, datadir, trig_time, time_windo
     if download_data == True:
         try:
             get_swift_bat_data(swift_id, datadir, overwrite=False)
-        except:
+        except Exception as e:
             # Check if the debug mode is enabled
             if debug:
             # Raise the exception, crashing the program
@@ -740,10 +747,26 @@ def search_frb_target(swift_id, evt_file, outdir, datadir, trig_time, time_windo
             
         lc_analysis_dict, rate_snr_dict, time, energy, old_time = analysis_result
 
-        # produce images and fluence limits 
+        # produce image for plotting and fluence limits 
         sky_image, w, bkg_data = get_sky_image(swift_id, chime_id, ra, dec, outdir, datadir,
                                                np.min(old_time), my_trig_time, time_window, evt_file,
                                                ra_err=0, dec_err=0, clobber='True')
+        
+        # loop through lc_analysis_dict and produce sky images for every time window (total counts only)
+        
+        img_time_widows = list(lc_analysis_dict['totcounts_dict_peak_time'].keys()) # time windows
+        for i in range(len(img_time_widows)):
+
+            peak_time = lc_analysis_dict['totcounts_dict_peak_time'][img_time_widows[i]]
+            image_name ='swift_id' + str(swift_id) +'.chime_id' + str(chime_id) +'.evt.frb.sky.img.total_counts.time_window_' + str(img_time_widows[i])
+            bkg_image_name = 'swift_id' + str(swift_id) +'.chime_id' + str(chime_id)+ '.bkg.frb.sky.img.total_counts.time_window_' + str(img_time_widows[i])
+            
+            get_sky_image(swift_id, chime_id, ra, dec, outdir, datadir,
+                  np.min(old_time), peak_time, 0.5*img_time_widows[i], evt_file, ra_err=0, dec_err=0,
+                  clobber='True', image_name=image_name, bkg_image_name = bkg_image_name)
+
+
+
          
         peak_snr, time_resolution, out_time_res, out_bans, out_snr = new_lc_plotting(lc_analysis_dict, rate_snr_dict,
                                                                                      time, energy, my_trig_time, energy_bans,

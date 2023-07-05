@@ -758,9 +758,9 @@ def search_frb_target(swift_id, evt_file, outdir, datadir, trig_time, time_windo
         for i in range(len(img_time_widows)):
 
             peak_time = lc_analysis_dict['totcounts_dict_peak_time'][img_time_widows[i]]
-            image_name ='swift_id' + str(swift_id) +'.chime_id' + str(chime_id) +'.evt.frb.sky.img.total_counts.time_window_' + str(img_time_widows[i])
-            bkg_image_name = 'swift_id' + str(swift_id) +'.chime_id' + str(chime_id)+ '.bkg.frb.sky.img.total_counts.time_window_' + str(img_time_widows[i])
-            
+            image_name ='swift_id' + str(swift_id) +'.chime_id_' + str(chime_id)[1:] +'.evt.frb.sky.img.total_counts.time_window_' + str(img_time_widows[i])
+            bkg_image_name = 'swift_id' + str(swift_id) +'.chime_id_' + str(chime_id)[1:]+ '.bkg.frb.sky.img.total_counts.time_window_' + str(img_time_widows[i])
+
             get_sky_image(swift_id, chime_id, ra, dec, outdir, datadir,
                   np.min(old_time), peak_time, 0.5*img_time_widows[i], evt_file, ra_err=0, dec_err=0,
                   clobber='True', image_name=image_name, bkg_image_name = bkg_image_name)
